@@ -1,4 +1,5 @@
 streamlit
+tabulate
 #checkContaminants
 #pandas
 #numpy
