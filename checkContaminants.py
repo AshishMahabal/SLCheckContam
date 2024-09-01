@@ -48,6 +48,9 @@ class location_contamination:
             return f"File {kw['file']} not found!", None, None
 
         result, info = self._get_score_dict(data, **kw)
+        if result is None:
+            return "Error in processing data", None, None
+
         num_pos = len(self._only_positives(result, kw['t']))
         
         return result, num_pos, info
@@ -136,16 +139,64 @@ class location_contamination:
         return fig
 
     def _get_data(self, file, csv_header=True):
-        # Implementation of _get_data method
-        pass
+        """
+        Read data from a CSV file and return a pandas DataFrame.
+        
+        Args:
+            file (str or pandas.DataFrame): The input file path or DataFrame.
+            csv_header (bool): Whether the CSV file has a header row.
+
+        Returns:
+            pandas.DataFrame: The processed data.
+        """
+        if isinstance(file, pd.DataFrame):
+            data = file
+        else:
+            try:
+                data = pd.read_csv(file, header=0 if csv_header else None)
+            except pd.errors.EmptyDataError:
+                return pd.DataFrame()
+
+        if not csv_header:
+            data.columns = ['species', 'count']
+        
+        data = data.groupby('species').agg({'count': 'sum'}).reset_index()
+        data = data[data['count'] > 0].sort_values('count', ascending=False).reset_index(drop=True)
+        
+        return data
 
     def _get_score_dict(self, data, **kw):
-        # Implementation of _get_score_dict method
-        pass
+        # ... existing code ...
+
+        result = pd.DataFrame(columns=['species', 'score', 'num_locs', 'total_reads'])
+        info = {}
+
+        for species in data['species']:
+            score = self._calculate_score(species, data)  # Assume this method exists
+            num_locs = data[data['species'] == species].shape[0]
+            total_reads = data[data['species'] == species]['count'].sum()
+            
+            result = result.append({
+                'species': species,
+                'score': score,
+                'num_locs': num_locs,
+                'total_reads': total_reads
+            }, ignore_index=True)
+
+            if score >= kw['t']:
+                info[species] = {
+                    'score': score,
+                    'num_locs': num_locs,
+                    'total_reads': total_reads
+                }
+
+        result = result.sort_values('score', ascending=False).reset_index(drop=True)
+        
+        return result, info
 
     def _only_positives(self, result, threshold):
-        # Implementation of _only_positives method
-        pass
+        # Implement this method to return a list of positive results
+        return [r for r in result if r >= threshold]  # This is just an example
 
     # Other methods to be added...
 
