@@ -1,45 +1,141 @@
 # checkContaminants.py
 
 import pandas as pd
-import matplotlib.pyplot as plt  # Assuming you're using matplotlib for plotting
+import numpy as np
+import json
+from io import BytesIO
+import pkgutil
+import sys
+import matplotlib.pyplot as plt
+import seaborn as sns
+from matplotlib_venn import venn3, venn3_circles
 
 class location_contamination:
     """
     Class for analyzing bacterial contamination based on curated species scores and provided data.
     """
     
-    def __init__(self, curated, config, local=2000):
-        # Load score weights and curated species with scores
-        self.factors = self.load_factors(config)
-        self.curated_species = self.load_curated_species(curated)
-        self.local_threshold = local
+    factors = {}
+    curated_species = pd.DataFrame()
+    local_threshold = 2000
 
-    def load_factors(self, config_file):
-        # Load score weights from config file (score_weights.txt)
-        # Implement the logic to read the config file and set up the weights
-        # Example: self.factors = {'factor1': 1.0, 'factor2': 0.5, ...}
-        pass
+    def __init__(self, **kw):
+        # Load configuration
+        if kw.get('config') == 'score_weights.txt':
+            data = pkgutil.get_data(__name__, 'data/score_weights.txt')
+            self.factors = json.loads(data)
+        else:
+            with open(kw['config']) as f:
+                data = f.read()
+            self.factors = json.loads(data)
+        
+        # Set local threshold
+        self.local_threshold = kw.get('local_threshold', 2000)
 
-    def load_curated_species(self, curated_file):
-        # Load curated species data from the provided file
-        # Example: self.curated_species = pd.read_csv(curated_file)
-        pass
+        # Load curated species data
+        if kw.get('curated') == 'curated_species.csv':
+            data = pkgutil.get_data(__name__, 'data/curated_species.csv')
+            self.curated_species = pd.DataFrame(pd.read_csv(BytesIO(data)))
+        else:
+            self.curated_species = pd.read_csv(kw['curated'], index_col=0)
 
-    def get_score(self, file, t, v, vv, pdf, outfile, sort_species, csv_header, local_threshold, logchart):
-        # Existing logic for calculating scores and processing the input data
-        pass
+        self.curated_species = self.curated_species.reset_index(drop=True)
 
-    def bar_locs_for_top10_species(self, ax, result):
-        # Generate bar chart for the top 10 species
-        # Assuming 'ax' is a matplotlib axis and 'result' is the data to plot
-        pass
+    def get_score(self, **kw):
+        try:
+            data = self.__get_data(kw['file'], kw['csv_header'])
+        except FileNotFoundError:
+            return f"File {kw['file']} not found!", None, None
 
-    def survey_reads_at_top10_locs(self, ax, result, filename, noheader, logchart):
-        # Generate a survey of reads at the top 10 locations
-        # Use the matplotlib axis 'ax' and other parameters as needed
-        pass
+        result, info = self.get_score_dict(data, **kw)
+        num_pos = len(self.__only_positives(result, kw['t']))
+        
+        return result, num_pos, info
 
-    # Add any additional helper functions here
+    def bar_locs_for_top10_species(self, result):
+        """
+        Generate a bar chart for the top 10 species by number of locations.
+        
+        Args:
+            result (pd.DataFrame): The result dataframe from get_score
+
+        Returns:
+            matplotlib.figure.Figure: The generated plot
+        """
+        top10 = result.nlargest(10, 'num_locs')
+        fig, ax = plt.subplots(figsize=(12, 6))
+        sns.barplot(x='species', y='num_locs', data=top10, ax=ax)
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
+        ax.set_title('Top 10 Species by Number of Locations')
+        ax.set_xlabel('Species')
+        ax.set_ylabel('Number of Locations')
+        plt.tight_layout()
+        return fig
+
+    def survey_reads_at_top10_locs(self, result, filename, noheader, logchart):
+        """
+        Generate a bar chart for the survey reads at top 10 locations.
+        
+        Args:
+            result (pd.DataFrame): The result dataframe from get_score
+            filename (str): Name of the input file
+            noheader (bool): Whether the input file has a header
+            logchart (bool): Whether to use log scale for the y-axis
+
+        Returns:
+            matplotlib.figure.Figure: The generated plot
+        """
+        data = self.__get_data(filename, not noheader)
+        top10_locs = data.nlargest(10, 'count')
+        
+        fig, ax = plt.subplots(figsize=(12, 6))
+        sns.barplot(x='species', y='count', data=top10_locs, ax=ax)
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
+        ax.set_title('Survey Reads at Top 10 Locations')
+        ax.set_xlabel('Species')
+        ax.set_ylabel('Read Count')
+        
+        if logchart:
+            ax.set_yscale('log')
+        
+        plt.tight_layout()
+        return fig
+
+    def create_venn_diagram(self, result, threshold):
+        """
+        Create a Venn diagram of the top 3 species by score.
+        
+        Args:
+            result (pd.DataFrame): The result dataframe from get_score
+            threshold (float): The score threshold for considering a species
+
+        Returns:
+            matplotlib.figure.Figure: The generated Venn diagram
+        """
+        top3 = result.nlargest(3, 'score')
+        sets = []
+        labels = []
+
+        for _, row in top3.iterrows():
+            species_data = self.__get_data(row['species'])
+            locations = set(species_data[species_data['count'] > threshold].index)
+            sets.append(locations)
+            labels.append(row['species'])
+
+        fig, ax = plt.subplots(figsize=(10, 10))
+        venn = venn3(sets, set_labels=labels)
+        venn3_circles(sets)
+        
+        # Customize colors and labels
+        for i, subset in enumerate(venn.subset_labels):
+            if subset:
+                subset.set_visible(True)
+                subset.set_fontweight('bold')
+
+        plt.title("Venn Diagram of Top 3 Species by Score")
+        return fig
+
+    # Other methods to be added...
 
 def run_analysis(infile, outfile, noheader, s, local, t, datfile, config, v, vv, pdf, logchart):
     """

@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from checkContaminants import run_analysis, location_contamination  # Import the refactored functions and classes
+from checkContaminants import location_contamination, run_analysis  # Import the refactored functions and classes
 
 # Set up the Streamlit app
 st.title("Bacterial Contamination Analysis")
@@ -28,67 +28,60 @@ detailed_vv = st.sidebar.checkbox("Detailed Table: Species, Scores, Number of Lo
 create_pdf = st.sidebar.checkbox("Create PDF of Contamination Report")
 log_chart = st.sidebar.checkbox("Log Scale for Third Chart (if bars have vast size differences)")
 
+# Add a checkbox for Venn diagram
+create_venn = st.sidebar.checkbox("Create Venn Diagram", value=False)
+
 # Run Analysis Button
 if st.sidebar.button("Run Analysis"):
     # Check if the input file is uploaded
     if uploaded_input_file is not None:
-        # Read the uploaded file based on its type
-        if uploaded_input_file.name.endswith('.csv'):
-            data = pd.read_csv(uploaded_input_file, header=None if no_header else 'infer')
-        elif uploaded_input_file.name.endswith('.json'):
-            data = pd.read_json(uploaded_input_file)
-        elif uploaded_input_file.name.endswith('.tsv'):
-            data = pd.read_csv(uploaded_input_file, delimiter='\t', header=None if no_header else 'infer')
-        else:
-            st.error("Unsupported file type. Please upload a .csv, .json, or .tsv file.")
-            st.stop()
-
-        # Display the input data for verification
-        st.write("### Input Data Preview")
-        st.dataframe(data.head())
-
-        # Run the refactored analysis function
         try:
-            loc, result = run_analysis(
-                infile=uploaded_input_file.name,
-                outfile=output_file_name,
-                noheader=no_header,
-                s=sort_by,
-                local=local_threshold,
-                t=score_threshold,
-                datfile=dat_file,
+            # Initialize location_contamination object
+            loc_cont = location_contamination(
                 config=config_file,
+                curated=dat_file,
+                local_threshold=local_threshold
+            )
+
+            # Run the analysis
+            result, num_pos, info = loc_cont.get_score(
+                file=uploaded_input_file,
+                csv_header=not no_header,
+                t=score_threshold,
                 v=summary_v,
                 vv=detailed_vv,
                 pdf=create_pdf,
                 logchart=log_chart
             )
 
-            st.success("Analysis completed successfully.")
+            if isinstance(result, str):  # Check if result is an error message
+                st.error(result)
+            else:
+                st.success("Analysis completed successfully.")
 
-            # Display or download results as needed
-            st.write("### Analysis Results")
-            # Example of displaying results (assuming the result is in a usable format)
-            st.dataframe(result)
+                # Display results
+                st.write("### Analysis Results")
+                st.dataframe(result)
 
-            # Optionally call other functions based on user input
-            if summary_v or detailed_vv:
-                # Example: Generate bar chart for the top 10 species
-                fig, ax = plt.subplots()
-                loc.bar_locs_for_top10_species(ax, result)
-                st.pyplot(fig)
+                # Display additional information
+                st.write(f"Number of positive contaminants: {num_pos}")
+                st.write("### Analysis Information")
+                st.write(info)
 
-            if log_chart:
-                # Example: Generate a log-scaled chart
-                fig, ax = plt.subplots()
-                loc.survey_reads_at_top10_locs(ax, result, filename=uploaded_input_file.name, noheader=no_header, logchart=log_chart)
-                st.pyplot(fig)
+                # Generate and display charts
+                st.write("### Top 10 Species by Number of Locations")
+                fig1 = loc_cont.bar_locs_for_top10_species(result)
+                st.pyplot(fig1)
 
-            # PDF generation, if implemented
-            if create_pdf:
-                st.write("PDF generation is not implemented yet but would go here.")
+                st.write("### Survey Reads at Top 10 Locations")
+                fig2 = loc_cont.survey_reads_at_top10_locs(result, uploaded_input_file, no_header, log_chart)
+                st.pyplot(fig2)
+
+                # PDF generation
+                if create_pdf:
+                    st.write("PDF generation is not implemented yet but would go here.")
 
         except Exception as e:
-            st.error(f"An error occurred: {e}")
+            st.error(f"An error occurred: {str(e)}")
     else:
         st.error("Please upload a valid input file.")

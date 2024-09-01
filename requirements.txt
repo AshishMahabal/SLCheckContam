@@ -2,6 +2,9 @@ streamlit
 tabulate
 matplotlib
 matplotlib_venn
+seaborn
+pandas
+numpy
 #mpl_toolkits
 #checkContaminants
 #pandas
