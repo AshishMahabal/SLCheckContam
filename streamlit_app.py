@@ -18,7 +18,15 @@ st.sidebar.header("Configuration Setup")
 sort_by = st.sidebar.text_input("Sort By (e.g., SLA, SA, SL, LS, I for input order)", value="SLA")
 local_threshold = st.sidebar.number_input("Local Threshold", value=2000, step=100)
 score_threshold = st.sidebar.number_input("Score Threshold for Positive Contaminants", min_value=0.0, value=1.0, step=0.1)
-dat_file = st.sidebar.text_input("Curated Species with Scores", value="curated_species.csv (provided)")
+
+# Modify the dat_file input
+use_default_dat = st.sidebar.checkbox("Use default Curated Species with Scores file", value=True)
+if use_default_dat:
+    dat_file = "curated_species.csv"
+else:
+    uploaded_dat_file = st.sidebar.file_uploader("Upload Curated Species with Scores file (.csv)", type=["csv"])
+    dat_file = uploaded_dat_file if uploaded_dat_file is not None else None
+
 config_file = st.sidebar.text_input("Score Weight Configuration File", value="score_weights.txt")
 
 # Output Preferences Section
@@ -33,8 +41,7 @@ create_venn = st.sidebar.checkbox("Create Venn Diagram", value=False)
 
 # Run Analysis Button
 if st.sidebar.button("Run Analysis"):
-    # Check if the input file is uploaded
-    if uploaded_input_file is not None:
+    if uploaded_input_file is not None and (use_default_dat or dat_file is not None):
         try:
             # Initialize location_contamination object
             loc_cont = location_contamination(
@@ -84,4 +91,4 @@ if st.sidebar.button("Run Analysis"):
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
     else:
-        st.error("Please upload a valid input file.")
+        st.error("Please upload a valid input file and ensure a Curated Species file is selected or uploaded.")
