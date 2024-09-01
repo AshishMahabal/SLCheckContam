@@ -1,59 +1,77 @@
 import streamlit as st
-import pandas as pd
-#from checkContaminants import check_sample_for_contaminants  # Adjust this import based on the actual function names
-import checkContaminants
-## About to replace code - new from ChatGPT 4o
+import pandas as pd  # Import pandas if needed to handle dataframes
+import json  # Import json if needed to handle JSON data
 
 # Set up the Streamlit app
-st.title("Bacterial Contaminant Checker")
-st.write("Upload a sample data file to check for harmful bacterial contaminants.")
+st.title("Bacterial Contamination Analysis")
+st.sidebar.header("Basic Usage")
 
-# Sidebar for options
-st.sidebar.header("Analysis Options")
-# Example options; adjust based on package functionality
-bacteria_list = st.sidebar.text_input("Specify Bacteria to Check (comma-separated)", value="Salmonella, E. coli")
-threshold = st.sidebar.slider("Detection Threshold", 0.0, 1.0, 0.5, step=0.01)
+# File Upload and Text Input for Input and Output Files
+uploaded_input_file = st.sidebar.file_uploader("Upload Locations Data File (.csv, .json, or .tsv)", type=["csv", "json", "tsv"])
+output_file_name = st.sidebar.text_input("Output File Name", value="terminal")
 
-# File uploader for sample data
-uploaded_file = st.file_uploader("Upload Sample Data File (CSV, Excel, or TXT)", type=["csv", "xlsx", "txt"])
+# Checkbox for noheader option
+no_header = st.sidebar.checkbox("No Header (if the input CSV/TSV file does not have a header)")
 
-if uploaded_file is not None:
-    # Read file content into a DataFrame or appropriate format
-    if uploaded_file.name.endswith(".csv"):
-        sample_data = pd.read_csv(uploaded_file)
-    elif uploaded_file.name.endswith(".xlsx"):
-        sample_data = pd.read_excel(uploaded_file)
+# Configuration Setup Section
+st.sidebar.header("Configuration Setup")
+sort_by = st.sidebar.text_input("Sort By (e.g., SLA, SA, SL, LS, I for input order)", value="SLA")
+local_threshold = st.sidebar.number_input("Local Threshold for Location Reads", min_value=0, value=2000)
+score_threshold = st.sidebar.number_input("Score Threshold for Positive Contaminants", min_value=0.0, value=1.0, step=0.1)
+dat_file = st.sidebar.text_input("Curated Species with Scores", value="curated_species.csv (provided)")
+config_file = st.sidebar.text_input("Score Weight Configuration File", value="score_weights.txt")
+
+# Output Preferences Section
+st.sidebar.header("Output Preferences")
+summary_v = st.sidebar.checkbox("Summary Table: Species, Scores, Number of Locations")
+detailed_vv = st.sidebar.checkbox("Detailed Table: Species, Scores, Number of Locations, Location Names")
+create_pdf = st.sidebar.checkbox("Create PDF of Contamination Report")
+log_chart = st.sidebar.checkbox("Log Scale for Third Chart (if bars have vast size differences)")
+
+# Run Analysis Button
+if st.sidebar.button("Run Analysis"):
+    # Check if the input file is uploaded
+    if uploaded_input_file is not None:
+        # Read the uploaded file based on its type
+        if uploaded_input_file.name.endswith('.csv'):
+            data = pd.read_csv(uploaded_input_file, header=None if no_header else 'infer')
+        elif uploaded_input_file.name.endswith('.json'):
+            data = pd.read_json(uploaded_input_file)
+        elif uploaded_input_file.name.endswith('.tsv'):
+            data = pd.read_csv(uploaded_input_file, delimiter='\t', header=None if no_header else 'infer')
+        else:
+            st.error("Unsupported file type. Please upload a .csv, .json, or .tsv file.")
+            st.stop()
+
+        # Display the input data for verification
+        st.write("### Input Data Preview")
+        st.dataframe(data.head())
+
+        # Replace this with the function that performs the analysis based on user inputs
+        # For example:
+        # results = analyze_bacterial_contamination(data, output_file_name, sort_by, local_threshold, score_threshold, dat_file, config_file, summary_v, detailed_vv, create_pdf, log_chart)
+
+        # Example result display (replace with actual results processing)
+        st.write("### Analysis Results")
+        # Display dummy results for now
+        dummy_results = pd.DataFrame({
+            'Species': ['Bacteria1', 'Bacteria2'],
+            'Scores': [1.2, 0.9],
+            'Number of Locations': [10, 5]
+        })
+        st.dataframe(dummy_results)
+
+        # Option to download results as file
+        st.download_button(
+            label="Download Results",
+            data=dummy_results.to_csv(index=False).encode('utf-8'),
+            file_name='bacteria_analysis_results.csv',
+            mime='text/csv'
+        )
+
+        # Handle PDF creation, logging, etc., as needed
+        if create_pdf:
+            st.write("PDF generation is not implemented yet but would go here.")
+
     else:
-        sample_data = pd.read_table(uploaded_file)
-
-    # Option to display raw content
-    st.write("### Uploaded Sample Data")
-    st.dataframe(sample_data)
-
-    # Run analysis when button is clicked
-    if st.button("Run Contaminant Check"):
-        # Call the check_sample_for_contaminants function with relevant parameters
-        try:
-            # Modify based on the actual parameters required by the function
-            result = check_sample_for_contaminants(sample_data, bacteria_list.split(','), threshold)
-            
-            # Convert results to a DataFrame if it's not already one
-            if isinstance(result, dict):
-                result_df = pd.DataFrame([result])
-            else:
-                result_df = result
-
-            # Display the results
-            st.write("### Contaminant Check Results")
-            st.dataframe(result_df)
-
-            # Provide a download option for the results
-            st.download_button(
-                label="Download Results",
-                data=result_df.to_csv(index=False).encode('utf-8'),
-                file_name='bacterial_contaminant_check_results.csv',
-                mime='text/csv'
-            )
-        except Exception as e:
-            st.error(f"An error occurred: {e}")
-
+        st.error("Please upload a valid input file.")
