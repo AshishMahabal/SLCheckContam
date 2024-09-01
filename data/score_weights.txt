@@ -1,0 +1,13 @@
+{"psychrophilic": 1,
+ "mesophilic": 0,
+ "thermophilic": 1,
+ "Spore formation": 1,
+ "aerobe": 0,
+ "anaerobe": 1,
+ "obligate aerobe": 0,
+ "obligate anaerobe": 1,
+ "facultative aerobe": 0,
+ "facultative anaerobe": 1,
+ "microaerophile": 1,
+ "aerotolerant": 1,
+ "Radiation Tolerance": 1}
