@@ -1,72 +1,73 @@
 import streamlit as st
 import pandas as pd
+import io
 from checkContaminants import location_contamination
 
-# Set up the Streamlit app
-st.title("Bacterial Contamination Analysis")
+st.title("Contamination Analysis")
 
-# Sidebar configuration
-st.sidebar.header("Configuration")
+# Sidebar inputs
+st.sidebar.header("Input Parameters")
 
-# File Upload
-uploaded_file = st.sidebar.file_uploader("Upload Locations Data File (CSV)", type=["csv"])
+uploaded_file = st.sidebar.file_uploader("Upload Locations Data File", type=["csv", "json", "tsv"])
+outfile = st.sidebar.selectbox("Output Format", ["terminal", "txt", "json", "csv", "tsv"])
+noheader = st.sidebar.checkbox("CSV/TSV file does not have a header")
 
-# Configuration Setup
-local_threshold = st.sidebar.number_input("Local Threshold", value=2000, step=100)
-score_threshold = st.sidebar.number_input("Score Threshold for Positive Contaminants", min_value=0.0, value=1.0, step=0.1)
+sort_order = st.sidebar.text_input("Sort Order (S: Score, L: Locations, A: Alphabetic, I: Input order)", "SLA")
+local_threshold = st.sidebar.number_input("Local threshold for location reads", value=2000)
+score_threshold = st.sidebar.number_input("Score threshold for positive contaminants", value=1.0, step=0.1)
+datfile = st.sidebar.text_input("Curated species file", "curated_species.csv")
+config_file = st.sidebar.text_input("Score weight config file", "score_weights.txt")
 
-# Curated Species File
-use_default_dat = st.sidebar.checkbox("Use default Curated Species with Scores file", value=True)
-if use_default_dat:
-    dat_file = "curated_species.csv"
+v_option = st.sidebar.checkbox("Show summary table (Species, Scores, Number of Locations)")
+vv_option = st.sidebar.checkbox("Show detailed summary table (including Location Names)")
+pdf_option = st.sidebar.checkbox("Create PDF of contamination report")
+logchart_option = st.sidebar.checkbox("Use log scale for read bars in 3rd chart")
+
+if uploaded_file is not None:
+    # Read the file
+    file_contents = uploaded_file.read()
+    file_type = uploaded_file.name.split('.')[-1]
+    
+    # Create a BytesIO object
+    file_buffer = io.BytesIO(file_contents)
+    
+    # Initialize location_contamination object
+    loc = location_contamination(curated=datfile, config=config_file, local=local_threshold)
+    
+    # Prepare arguments for get_score method
+    kwargs = {
+        "file": file_buffer,
+        "t": score_threshold,
+        "v": v_option,
+        "vv": vv_option,
+        "pdf": pdf_option,
+        "outfile": "terminal",  # We'll capture the output and display it in Streamlit
+        "sort_species": sort_order.lower(),
+        "csv_header": not noheader,
+        "local_threshold": local_threshold,
+        "logchart": logchart_option,
+        "curated": datfile,
+        "config": config_file,
+        "local": local_threshold
+    }
+    
+    # Capture the output
+    output = io.StringIO()
+    import sys
+    sys.stdout = output
+    
+    # Run the analysis
+    loc.get_score(**kwargs)
+    
+    # Reset stdout
+    sys.stdout = sys.__stdout__
+    
+    # Display the output in the main area
+    st.text(output.getvalue())
+    
+    # If PDF was generated, provide a download link
+    if pdf_option:
+        st.write("PDF report generated. Please check your local directory.")
+
 else:
-    uploaded_dat_file = st.sidebar.file_uploader("Upload Curated Species with Scores file (CSV)", type=["csv"])
-    dat_file = uploaded_dat_file if uploaded_dat_file is not None else None
-
-# Run Analysis Button
-if st.sidebar.button("Run Analysis"):
-    if uploaded_file is not None and (use_default_dat or dat_file is not None):
-        try:
-            # Initialize location_contamination object
-            loc_cont = location_contamination(
-                config="score_weights.txt",
-                curated=dat_file,
-                local_threshold=local_threshold
-            )
-
-            # Run the analysis
-            result, num_pos, info = loc_cont.get_score(
-                file=uploaded_file,
-                csv_header=True,
-                t=score_threshold
-            )
-
-            if isinstance(result, str):  # Check if result is an error message
-                st.error(result)
-            else:
-                st.success("Analysis completed successfully.")
-
-                # Display results
-                st.header("Analysis Results")
-                st.dataframe(result)
-
-                # Display additional information
-                st.write(f"Number of positive contaminants: {num_pos}")
-                st.header("Analysis Information")
-                st.write(info)
-
-                # Generate and display charts
-                st.header("Top 10 Species by Number of Locations")
-                fig1 = loc_cont.bar_locs_for_top10_species(result)
-                st.pyplot(fig1)
-
-                st.header("Survey Reads at Top 10 Locations")
-                fig2 = loc_cont.survey_reads_at_top10_locs(result, uploaded_file, False, False)
-                st.pyplot(fig2)
-
-        except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
-    else:
-        st.error("Please upload a valid input file and ensure a Curated Species file is selected or uploaded.")
-else:
-    st.write("Please configure the analysis parameters in the sidebar and click 'Run Analysis' to start.")
+    st.write("Please upload a file to begin the analysis.")

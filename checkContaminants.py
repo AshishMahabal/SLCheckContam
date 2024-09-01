@@ -1,231 +1,256 @@
-# checkContaminants.py
-
+import argparse
+import sys
 import pandas as pd
 import numpy as np
-import json
-from io import BytesIO
+import os
 import pkgutil
-import sys
-import matplotlib.pyplot as plt
-import seaborn as sns
-from matplotlib_venn import venn3, venn3_circles
+from io import BytesIO
+import json
+import csv
+from math import log, exp
+from tabulate import tabulate
+import itertools
 
-class location_contamination:
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib_venn import venn3, venn3_circles
+from matplotlib_venn import venn3_unweighted
+import matplotlib.gridspec as gridspec
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+import warnings as w
+w.filterwarnings("ignore")
+
+class location_contamination(object):
     """
-    Class for analyzing bacterial contamination based on curated species scores and provided data.
     """
-    
-    factors = {}
-    curated_species = pd.DataFrame()
+    factors = {} # score weights
+    curated_species = pd.DataFrame() # curated species with scores
     local_threshold = 2000
 
-    def __init__(self, config, curated, local_threshold):
-        # Load configuration
-        if config == 'score_weights.txt':
-            data = pkgutil.get_data(__name__, 'data/score_weights.txt')
-            self.factors = json.loads(data)
-        else:
-            with open(config) as f:
-                data = f.read()
-            self.factors = json.loads(data)
-        
-        # Set local threshold
-        self.local_threshold = local_threshold
-
-        # Load curated species data
-        if curated == 'curated_species.csv':
-            data = pkgutil.get_data(__name__, 'data/curated_species.csv')
-            self.curated_species = pd.DataFrame(pd.read_csv(BytesIO(data)))
-        else:
-            self.curated_species = pd.read_csv(curated, index_col=0)
-
-        self.curated_species = self.curated_species.reset_index(drop=True)
+    def __init__(self, **kw):
+        # Remove the file reading logic for config and curated species
+        # Instead, assume these are passed as parameters
+        self.factors = kw['config']
+        self.curated_species = kw['curated']
+        self.local_threshold = kw['local']
 
     def get_score(self, **kw):
+        """
+        """
+        result, info = self.get_score_dict(**kw)
+        num_pos = len(self.__only_positives(result, kw['t']))
+        
+        # Remove file output logic, always return the result
+        return self.__create_output(result, num_pos, kw['v'], kw['vv'], info)
+
+    def __create_output(self, result, num_pos, v, vv, info):
+        output = io.StringIO()
+        sys.stdout = output
+        self.__print_result(result, num_pos, v, vv, info)
+        sys.stdout = sys.__stdout__
+        return output.getvalue()
+
+    def __create_temp_df(self, result, v, vv):
+        verbose_print = pd.DataFrame(columns=['Species', 'Contamination Score', 'Locations Found', 'Location Names'])
+        species_list = []
+        contam = []
+        locs = []
+        loc_names = []
+        for species in result:
+            species_list.append(species['Species'])
+            contam.append(species['Contamination potential'])
+            locs.append(species['Number of locations with reads > ' + str(self.local_threshold)])
+            loc_names.append('; '.join(species['Location names']))
+        verbose_print['Species'] = species_list
+        verbose_print['Contamination Score'] = contam
+        verbose_print['Locations Found'] = locs
+        verbose_print['Location Names'] = loc_names
+        # verbose_print.sort_values('Species')
+        if not v and not vv:
+            return verbose_print[['Species', 'Contamination Scores']]
+        elif v:
+            return verbose_print[['Species', 'Contamination Score', 'Locations Found']]
+        elif vv:
+            return verbose_print[['Species', 'Contamination Score', 'Locations Found', 'Location Names']]
+
+    def get_score_dict(self, **kw):
+        """
+        """
         try:
-            data = self._get_data(kw['file'], kw['csv_header'])
+            data = self.__get_data(kw['file'], kw['csv_header'])
         except FileNotFoundError:
-            return f"File {kw['file']} not found!", None, None
+            print('File ' + kw['file'] + ' not found!')
+            sys.exit(0)
 
-        result, info = self._get_score_dict(data, **kw)
-        if result is None:
-            return "Error in processing data", None, None
+        result_list = []
+        other_info = {}
+        other_info['Species not found in curated set'] = 0
+        other_info['Locations processed'] = len(data.columns) - 1
 
-        num_pos = len(self._only_positives(result, kw['t']))
-        
-        return result, num_pos, info
+        for index, row in data.iterrows():
+            result = {}
+            # if kw['mode'] == 'v' or kw['mode']:
+            result['Species'] = row['Species']
+            result['In curated dataset'] = result['Species'] in list(self.curated_species['Species'])
+            if result['In curated dataset'] == 0:
+                other_info['Species not found in curated set'] += 1
+            # result['Total locations checked'] = len(data.columns) - 1
+            result['Number of locations with reads > ' + str(self.local_threshold)] = self.__more_than_local_thresh(row, kw['local_threshold'])
+            result['Location names'] = self.__positive_locations(row)
+            # result['Cumulative rule passed'] = self.__cumulative_rule(row)
+            if result['In curated dataset']:
+                total = 0
+                index = self.curated_species[self.curated_species['Species'] == result['Species']].index[0]
+                for parameter in self.factors.keys():
+                    par_score = self.curated_species.iloc[index][parameter] * self.factors[parameter]
+                    total += par_score
+                    if par_score != 0:
+                        result[parameter] = par_score
+                result['Contamination potential'] = total
+            else:
+                result['Contamination potential'] = -1          
+            result_list.append(result)
 
-    def bar_locs_for_top10_species(self, result):
-        """
-        Generate a bar chart for the top 10 species by number of locations.
-        
-        Args:
-            result (pd.DataFrame): The result dataframe from get_score
+        result_list = self.__only_positives(result_list, kw['t'])
 
-        Returns:
-            matplotlib.figure.Figure: The generated plot
-        """
-        top10 = result.nlargest(10, 'num_locs')
-        fig, ax = plt.subplots(figsize=(12, 6))
-        sns.barplot(x='species', y='num_locs', data=top10, ax=ax)
-        ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
-        ax.set_title('Top 10 Species by Number of Locations')
-        ax.set_xlabel('Species')
-        ax.set_ylabel('Number of Locations')
-        plt.tight_layout()
-        return fig
+        for attr in str(kw['sort_species'])[::-1]: # reverse string
+            if attr == 's':
+                result_list = self.__sort_result(result_list)
+            if attr == 'a':
+                result_list = self.__sort_alphabetic(result_list)
+            if attr == 'l':
+                result_list = self.__sort_locs(result_list)
 
-    def survey_reads_at_top10_locs(self, result, filename, noheader, logchart):
-        """
-        Generate a bar chart for the survey reads at top 10 locations.
-        
-        Args:
-            result (pd.DataFrame): The result dataframe from get_score
-            filename (str): Name of the input file
-            noheader (bool): Whether the input file has a header
-            logchart (bool): Whether to use log scale for the y-axis
+        return (result_list, other_info)
+    
+    def __sort_alphabetic(self, result_list):
+        return sorted(result_list, reverse=False, key=lambda k: (k['Species']))
 
-        Returns:
-            matplotlib.figure.Figure: The generated plot
-        """
-        data = self._get_data(filename, not noheader)
-        top10_locs = data.nlargest(10, 'count')
-        
-        fig, ax = plt.subplots(figsize=(12, 6))
-        sns.barplot(x='species', y='count', data=top10_locs, ax=ax)
-        ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
-        ax.set_title('Survey Reads at Top 10 Locations')
-        ax.set_xlabel('Species')
-        ax.set_ylabel('Read Count')
-        
-        if logchart:
-            ax.set_yscale('log')
-        
-        plt.tight_layout()
-        return fig
-
-    def create_venn_diagram(self, result, threshold):
-        """
-        Create a Venn diagram of the top 3 species by score.
-        
-        Args:
-            result (pd.DataFrame): The result dataframe from get_score
-            threshold (float): The score threshold for considering a species
-
-        Returns:
-            matplotlib.figure.Figure: The generated Venn diagram
-        """
-        top3 = result.nlargest(3, 'score')
-        sets = []
-        labels = []
-
-        for _, row in top3.iterrows():
-            species_data = self._get_data(row['species'])
-            locations = set(species_data[species_data['count'] > threshold].index)
-            sets.append(locations)
-            labels.append(row['species'])
-
-        fig, ax = plt.subplots(figsize=(10, 10))
-        venn = venn3(sets, set_labels=labels)
-        venn3_circles(sets)
-        
-        # Customize colors and labels
-        for i, subset in enumerate(venn.subset_labels):
-            if subset:
-                subset.set_visible(True)
-                subset.set_fontweight('bold')
-
-        plt.title("Venn Diagram of Top 3 Species by Score")
-        return fig
-
-    def _get_data(self, file, csv_header=True):
-        """
-        Read data from a CSV file and return a pandas DataFrame.
-        
-        Args:
-            file (str or pandas.DataFrame): The input file path or DataFrame.
-            csv_header (bool): Whether the CSV file has a header row.
-
-        Returns:
-            pandas.DataFrame: The processed data.
-        """
-        if isinstance(file, pd.DataFrame):
-            data = file
+    def __sort_result(self, result_list):
+        return sorted(result_list, reverse=True, key=lambda k: (k['Contamination potential']))
+    
+    def __sort_locs(self, result_list):
+        return sorted(result_list, reverse=True, key=lambda k: (k['Number of locations with reads > ' + str(self.local_threshold)]))
+    
+    def __print_result_summary(self, result, num_pos, f):
+        summary = pd.DataFrame(columns=['Score','# of Species', '# of Locations'])
+        scores = [species['Contamination potential'] for species in result]
+        scores = list(set(scores))
+        num_species = {}
+        num_locs = {}
+        for score in scores:
+            num_species[score] = 0
+            num_locs[score] = 0
+        for element in result:
+            num_species[element['Contamination potential']] += 1
+            num_locs[element['Contamination potential']] += element['Number of locations with reads > ' + str(self.local_threshold)]
+        summary['Score'] = scores
+        summary['# of Locations'] = num_locs.values()
+        summary['# of Species'] = num_species.values()
+        if f != '':
+            # print('FILEFILE')
+            print(summary.to_markdown(index=False), file=f)
+            print('\n', file=f)
         else:
-            try:
-                data = pd.read_csv(file, header=0 if csv_header else None)
-            except pd.errors.EmptyDataError:
-                return pd.DataFrame()
+            print(summary.to_markdown(index=False))
+            print('\n')
 
-        if not csv_header:
-            data.columns = ['species', 'count']
-        
-        data = data.groupby('species').agg({'count': 'sum'}).reset_index()
-        data = data[data['count'] > 0].sort_values('count', ascending=False).reset_index(drop=True)
-        
+    def __print_result(self, result, num_pos, v, vv, info):
+        print('\n')
+        if len(result) == 0:
+            print('No species were found')
+            sys.exit(0)
+        print('Number of positives detected: ' + str(num_pos) + '\n')
+        output = ''
+        if not v and not vv:
+            for species in result:
+                output += species['Species']
+                output += ' ({})\n'.format(species['Contamination potential'])
+            print(output + '\n')
+        if v and not vv:
+            self.__print_result_summary(result, num_pos, '')
+            for species in result:
+                output += species['Species']
+                output+= ' (score: {}; locs: {})\n'.format(species['Contamination potential'], species['Contamination potential'])
+            output += '\nSpecies not found in Curated Set: ' + str(info['Species not found in curated set']) + '\n'
+            output += 'Locations processed: ' + str(info['Locations processed']) + '\n'
+            print(output)
+        if not v and vv:
+            self.__print_result_summary(result, num_pos, '')
+            verbose_print = pd.DataFrame(columns=['Species', 'Contamination Score', 'Locations Found', 'Location Names'])
+            species_list = []
+            contam = []
+            locs = []
+            loc_names = []
+            for species in result:
+                species_list.append(species['Species'])
+                contam.append(species['Contamination potential'])
+                locs.append(species['Number of locations with reads > ' + str(self.local_threshold)])
+                loc_names_str = '; '.join(species['Location names'])
+                # new line between every 3rd location
+                pos = [0] + [i+1 for i, x in enumerate(loc_names_str) if x == ';'][3::3]
+                parts = [loc_names_str[i:j] for i,j in zip(pos, pos[1:]+[None])]
+                loc_names_str = '\n'.join(parts)
+
+                loc_names.append(loc_names_str)
+
+            verbose_print['Species'] = species_list
+            verbose_print['Contamination Score'] = contam
+            verbose_print['Locations Found'] = locs
+            verbose_print['Location Names'] = loc_names
+            print('\n')
+            print(verbose_print.to_markdown())
+            print('\n')
+            print('Species not found in Curated Set: ' + str(info['Species not found in curated set']))
+            print('Locations processed: ' + str(info['Locations processed']) + '\n')
+    
+    def __get_data(self, file, withheader):
+        # Assume file is already a DataFrame
+        data = file
+        new_columns = list(data.columns)
+        new_columns[0] = 'Species'
+        data.columns = new_columns
+        self.__check_data(data)
         return data
+    
+    def __more_than_local_thresh(self, row, local_threshold):
+        return len(row[1:][row[1:] >= local_threshold])
+    
+    def __positive_locations(self, row):
+        # print('Row:' + str(row))
+        return list(row[1:][row[1:] >= self.local_threshold].index)
 
-    def _get_score_dict(self, data, **kw):
-        # ... existing code ...
-
-        result = pd.DataFrame(columns=['species', 'score', 'num_locs', 'total_reads'])
-        info = {}
-
-        for species in data['species']:
-            score = self._calculate_score(species, data)  # Assume this method exists
-            num_locs = data[data['species'] == species].shape[0]
-            total_reads = data[data['species'] == species]['count'].sum()
-            
-            result = result.append({
-                'species': species,
-                'score': score,
-                'num_locs': num_locs,
-                'total_reads': total_reads
-            }, ignore_index=True)
-
-            if score >= kw['t']:
-                info[species] = {
-                    'score': score,
-                    'num_locs': num_locs,
-                    'total_reads': total_reads
-                }
-
-        result = result.sort_values('score', ascending=False).reset_index(drop=True)
-        
-        return result, info
-
-    def _only_positives(self, result, threshold):
-        # Implement this method to return a list of positive results
-        return [r for r in result if r >= threshold]  # This is just an example
-
-    # Other methods to be added...
-
-def run_analysis(infile, outfile, noheader, s, local, t, datfile, config, v, vv, pdf, logchart):
-    """
-    Function to run the analysis by initializing the location_contamination class
-    and calling its methods based on provided parameters.
-    """
-    # Input validation logic from argparse
-    if not all(ch.lower() in 'slai' for ch in s):
-        raise ValueError('Sort command contains unrecognized input characters. String must be a combination of S, L, A, or I. Not: ' + s)
-    if 'i' in s.lower() and len(s) > 1:
-        raise ValueError('To keep initial order, \'I\' must be the only character argument')
-
-    # Check required inputs
-    if infile is None:
-        raise Exception('You must specify an infile name.')
-    if '(provided)' in datfile:
-        datfile = datfile[:datfile.index(' (provided)')]
-    if '(provided)' in config:
-        config = config[:config.index(' (provided)')]
-
-    # Initialize the location_contamination class
-    loc = location_contamination(curated=datfile, config=config, local=local)
-
-    # Run the get_score method to perform the main analysis
-    result = loc.get_score(file=infile, t=t, v=v, vv=vv, pdf=pdf, outfile=outfile,
-                           sort_species=s.lower(), csv_header=not noheader,
-                           local_threshold=local, logchart=logchart)
-
-    return loc, result  # Return the instance and results for further use
-
+    def __cumulative_rule(self, row):
+        if len(row[1:]) > 40:
+            thresh = len(row[1:])*50
+        else:
+            thresh = self.local_threshold
+        return sum(row[1:]) > thresh
+    
+    def __only_positives(self, result_list, threshold):
+        """
+        Positives are defined as contamination score >= threshold and number of locations with detections (>self.local_threshold reads) is > 0
+        """
+        if 'Number of locations with reads > ' + str(self.local_threshold) in result_list[0].keys(): # verbose mode
+            return [result for result in result_list if result['Contamination potential']
+            >= threshold and result['Number of locations with reads > ' + str(self.local_threshold)] > 0]
+        else:
+            return [result for result in result_list if result['Contamination potential'] >= threshold]
+    
+    def __check_data(self, data):
+        # for species in data['Species']:
+        #     if species.startswith('#'):
+        #         print('Ignoring lines that start with # Eg: ' + species)
+        #         data = data.drop(data[data['Species'] == species].index[0])                           
+        if sum(~data.drop(columns=['Species'], inplace=False).dtypes.map(pd.api.types.is_numeric_dtype)) != 0:
+            sys.tracebacklimit=0
+            raise Exception('Reads columns must only contain numeric values!')
+        # strip species list
+        species_list = list(data['Species'])
+        species_list = [species.strip('\'') for species in species_list]
+        species_list = [species.strip() for species in species_list]
+        species_list = [species.strip('\"') for species in species_list]
+        data['Species'] = species_list
+    
+    def __create_pdf(self, result, **kw):
+        # Remove this method or modify it to return the figure instead of saving it
