@@ -1,6 +1,7 @@
 streamlit
 tabulate
 matplotlib
+matplotlib_venn
 #mpl_toolkits
 #checkContaminants
 #pandas
