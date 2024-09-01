@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 #from checkContaminants import check_sample_for_contaminants  # Adjust this import based on the actual function names
 import checkContaminants
+## About to replace code - new from ChatGPT 4o
 
 # Set up the Streamlit app
 st.title("Bacterial Contaminant Checker")
