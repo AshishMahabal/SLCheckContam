@@ -47,8 +47,8 @@ class location_contamination:
         except FileNotFoundError:
             return f"File {kw['file']} not found!", None, None
 
-        result, info = self.get_score_dict(data, **kw)
-        num_pos = len(self.__only_positives(result, kw['t']))
+        result, info = self._get_score_dict(data, **kw)
+        num_pos = len(self._only_positives(result, kw['t']))
         
         return result, num_pos, info
 
@@ -134,6 +134,18 @@ class location_contamination:
 
         plt.title("Venn Diagram of Top 3 Species by Score")
         return fig
+
+    def _get_data(self, file, csv_header=True):
+        # Implementation of _get_data method
+        pass
+
+    def _get_score_dict(self, data, **kw):
+        # Implementation of _get_score_dict method
+        pass
+
+    def _only_positives(self, result, threshold):
+        # Implementation of _only_positives method
+        pass
 
     # Other methods to be added...
 
