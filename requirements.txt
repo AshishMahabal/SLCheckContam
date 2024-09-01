@@ -1,7 +1,7 @@
 streamlit
 tabulate
 matplotlib
-mpl_toolkits
+#mpl_toolkits
 #checkContaminants
 #pandas
 #numpy
