@@ -19,31 +19,31 @@ class location_contamination:
     curated_species = pd.DataFrame()
     local_threshold = 2000
 
-    def __init__(self, **kw):
+    def __init__(self, config, curated, local_threshold):
         # Load configuration
-        if kw.get('config') == 'score_weights.txt':
+        if config == 'score_weights.txt':
             data = pkgutil.get_data(__name__, 'data/score_weights.txt')
             self.factors = json.loads(data)
         else:
-            with open(kw['config']) as f:
+            with open(config) as f:
                 data = f.read()
             self.factors = json.loads(data)
         
         # Set local threshold
-        self.local_threshold = kw.get('local_threshold', 2000)
+        self.local_threshold = local_threshold
 
         # Load curated species data
-        if kw.get('curated') == 'curated_species.csv':
+        if curated == 'curated_species.csv':
             data = pkgutil.get_data(__name__, 'data/curated_species.csv')
             self.curated_species = pd.DataFrame(pd.read_csv(BytesIO(data)))
         else:
-            self.curated_species = pd.read_csv(kw['curated'], index_col=0)
+            self.curated_species = pd.read_csv(curated, index_col=0)
 
         self.curated_species = self.curated_species.reset_index(drop=True)
 
     def get_score(self, **kw):
         try:
-            data = self.__get_data(kw['file'], kw['csv_header'])
+            data = self._get_data(kw['file'], kw['csv_header'])
         except FileNotFoundError:
             return f"File {kw['file']} not found!", None, None
 
@@ -85,7 +85,7 @@ class location_contamination:
         Returns:
             matplotlib.figure.Figure: The generated plot
         """
-        data = self.__get_data(filename, not noheader)
+        data = self._get_data(filename, not noheader)
         top10_locs = data.nlargest(10, 'count')
         
         fig, ax = plt.subplots(figsize=(12, 6))
@@ -117,7 +117,7 @@ class location_contamination:
         labels = []
 
         for _, row in top3.iterrows():
-            species_data = self.__get_data(row['species'])
+            species_data = self._get_data(row['species'])
             locations = set(species_data[species_data['count'] > threshold].index)
             sets.append(locations)
             labels.append(row['species'])

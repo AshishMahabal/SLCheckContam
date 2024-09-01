@@ -41,7 +41,8 @@ create_venn = st.sidebar.checkbox("Create Venn Diagram", value=False)
 
 # Run Analysis Button
 if st.sidebar.button("Run Analysis"):
-    if uploaded_input_file is not None and (use_default_dat or dat_file is not None):
+    # Check if the input file is uploaded
+    if uploaded_input_file is not None:
         try:
             # Initialize location_contamination object
             loc_cont = location_contamination(
