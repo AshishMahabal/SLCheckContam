@@ -16,7 +16,7 @@ no_header = st.sidebar.checkbox("No Header (if the input CSV/TSV file does not h
 # Configuration Setup Section
 st.sidebar.header("Configuration Setup")
 sort_by = st.sidebar.text_input("Sort By (e.g., SLA, SA, SL, LS, I for input order)", value="SLA")
-local_threshold = st.sidebar.number_input("Local Threshold for Location Reads", min_value=0, value=2000)
+local_threshold = st.sidebar.number_input("Local Threshold", value=2000, step=100)
 score_threshold = st.sidebar.number_input("Score Threshold for Positive Contaminants", min_value=0.0, value=1.0, step=0.1)
 dat_file = st.sidebar.text_input("Curated Species with Scores", value="curated_species.csv (provided)")
 config_file = st.sidebar.text_input("Score Weight Configuration File", value="score_weights.txt")
