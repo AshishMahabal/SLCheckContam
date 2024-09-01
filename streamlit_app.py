@@ -1,6 +1,6 @@
 import streamlit as st
-import pandas as pd  # Import pandas if needed to handle dataframes
-import json  # Import json if needed to handle JSON data
+import pandas as pd
+from checkContaminants import run_analysis, location_contamination  # Import the refactored functions and classes
 
 # Set up the Streamlit app
 st.title("Bacterial Contamination Analysis")
@@ -47,31 +47,48 @@ if st.sidebar.button("Run Analysis"):
         st.write("### Input Data Preview")
         st.dataframe(data.head())
 
-        # Replace this with the function that performs the analysis based on user inputs
-        # For example:
-        # results = analyze_bacterial_contamination(data, output_file_name, sort_by, local_threshold, score_threshold, dat_file, config_file, summary_v, detailed_vv, create_pdf, log_chart)
+        # Run the refactored analysis function
+        try:
+            loc, result = run_analysis(
+                infile=uploaded_input_file.name,
+                outfile=output_file_name,
+                noheader=no_header,
+                s=sort_by,
+                local=local_threshold,
+                t=score_threshold,
+                datfile=dat_file,
+                config=config_file,
+                v=summary_v,
+                vv=detailed_vv,
+                pdf=create_pdf,
+                logchart=log_chart
+            )
 
-        # Example result display (replace with actual results processing)
-        st.write("### Analysis Results")
-        # Display dummy results for now
-        dummy_results = pd.DataFrame({
-            'Species': ['Bacteria1', 'Bacteria2'],
-            'Scores': [1.2, 0.9],
-            'Number of Locations': [10, 5]
-        })
-        st.dataframe(dummy_results)
+            st.success("Analysis completed successfully.")
 
-        # Option to download results as file
-        st.download_button(
-            label="Download Results",
-            data=dummy_results.to_csv(index=False).encode('utf-8'),
-            file_name='bacteria_analysis_results.csv',
-            mime='text/csv'
-        )
+            # Display or download results as needed
+            st.write("### Analysis Results")
+            # Example of displaying results (assuming the result is in a usable format)
+            st.dataframe(result)
 
-        # Handle PDF creation, logging, etc., as needed
-        if create_pdf:
-            st.write("PDF generation is not implemented yet but would go here.")
+            # Optionally call other functions based on user input
+            if summary_v or detailed_vv:
+                # Example: Generate bar chart for the top 10 species
+                fig, ax = plt.subplots()
+                loc.bar_locs_for_top10_species(ax, result)
+                st.pyplot(fig)
 
+            if log_chart:
+                # Example: Generate a log-scaled chart
+                fig, ax = plt.subplots()
+                loc.survey_reads_at_top10_locs(ax, result, filename=uploaded_input_file.name, noheader=no_header, logchart=log_chart)
+                st.pyplot(fig)
+
+            # PDF generation, if implemented
+            if create_pdf:
+                st.write("PDF generation is not implemented yet but would go here.")
+
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
     else:
         st.error("Please upload a valid input file.")
