@@ -12,18 +12,32 @@ def load_data():
     with open('data/score_weights.txt', 'r') as f:
         score_weights = json.load(f)
 
-    # Load input comparison CSV
-    input_df = pd.read_csv('data/sample-infile.csv')
+    return curated_df, score_weights
 
-    return curated_df, score_weights, input_df
+curated_df, score_weights = load_data()
 
-curated_df, score_weights, input_df = load_data()
+# Function to read comparison CSV file
+def load_comparison_file(uploaded_file):
+    return pd.read_csv(uploaded_file)
 
 # Sidebar - Display options
 st.sidebar.title("Display Options")
 show_curated = st.sidebar.checkbox('Show first few lines of Curated List')
 show_weights = st.sidebar.checkbox('Show Score Weights')
-show_input = st.sidebar.checkbox('Show first few lines of Input CSV')
+
+# Input File Selection
+st.sidebar.title("Input File")
+use_default_file = st.sidebar.checkbox('Use default input file: sample-infile.csv', value=True)
+
+if use_default_file:
+    input_df = pd.read_csv('data/sample-infile.csv')
+else:
+    uploaded_file = st.sidebar.file_uploader("Upload a CSV file for comparison", type="csv")
+    if uploaded_file is not None:
+        input_df = load_comparison_file(uploaded_file)
+    else:
+        st.warning("Please upload a CSV file for comparison.")
+        st.stop()
 
 # Sidebar - Threshold Settings
 st.sidebar.title("Threshold Settings")
@@ -43,20 +57,20 @@ if show_weights:
     st.subheader("Score Weights")
     st.json(score_weights)
 
-if show_input:
-    st.subheader("Input Comparison CSV (First Few Lines)")
-    st.dataframe(input_df.head())
+st.subheader("Input Comparison CSV (First Few Lines)")
+st.dataframe(input_df.head())
 
 # Calculate Stats
 num_rows = len(input_df)
-matching_rows = input_df[input_df['#Datasets'].isin(curated_df['Species'])].shape[0]
+matching_rows_df = input_df[input_df['#Datasets'].isin(curated_df['Species'])]
+matching_rows = matching_rows_df.shape[0]
 
-def calculate_threshold_stats(input_df, reads_threshold):
-    location_columns = [col for col in input_df.columns if col.startswith('loc')]
-    thresh_rows = input_df[location_columns].apply(lambda x: any(x > reads_threshold), axis=1).sum()
+def calculate_threshold_stats(matching_rows_df, reads_threshold):
+    location_columns = [col for col in matching_rows_df.columns if col.startswith('loc')]
+    thresh_rows = matching_rows_df[location_columns].apply(lambda x: any(x > reads_threshold), axis=1).sum()
     return thresh_rows
 
-thresh_rows = calculate_threshold_stats(input_df, reads_threshold)
+thresh_rows = calculate_threshold_stats(matching_rows_df, reads_threshold)
 
 # Display Stats Table
 st.subheader("Statistics")
@@ -69,10 +83,10 @@ stats_df = pd.DataFrame({
 st.table(stats_df)
 
 # Filtering Based on Thresholds
-def filter_bacteria(input_df, curated_df, score_weights, score_threshold, reads_threshold):
+def filter_bacteria(matching_rows_df, curated_df, score_weights, score_threshold, reads_threshold):
     # Filter based on reads threshold
-    filtered_df = input_df.copy()
-    location_columns = [col for col in input_df.columns if col.startswith('loc')]
+    filtered_df = matching_rows_df.copy()
+    location_columns = [col for col in matching_rows_df.columns if col.startswith('loc')]
 
     # Determine if any location's reads exceed the threshold
     filtered_df['Num loc'] = filtered_df[location_columns].apply(lambda x: x[x > reads_threshold].count(), axis=1)
@@ -82,8 +96,6 @@ def filter_bacteria(input_df, curated_df, score_weights, score_threshold, reads_
     filtered_df = filtered_df[filtered_df['Num loc'] > 0]
 
     # Score calculation based on weights
-    matching_species = filtered_df['#Datasets'].isin(curated_df['Species'])
-    filtered_df = filtered_df[matching_species]
     filtered_df['Weight Score'] = filtered_df['#Datasets'].apply(lambda x: sum(curated_df[curated_df['Species'] == x][list(score_weights.keys())].values.flatten() * list(score_weights.values())))
 
     # Filter based on score threshold
@@ -91,7 +103,7 @@ def filter_bacteria(input_df, curated_df, score_weights, score_threshold, reads_
 
     return filtered_df[['#Datasets', 'Num loc', 'Locations']].rename(columns={'#Datasets': 'Species'})
 
-filtered_bacteria = filter_bacteria(input_df, curated_df, score_weights, score_threshold, reads_threshold)
+filtered_bacteria = filter_bacteria(matching_rows_df, curated_df, score_weights, score_threshold, reads_threshold)
 
 st.subheader("Filtered Bacteria List")
 st.dataframe(filtered_bacteria)
