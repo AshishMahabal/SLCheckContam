@@ -27,15 +27,11 @@ show_input = st.sidebar.checkbox('Show first few lines of Input CSV')
 
 # Sidebar - Threshold Settings
 st.sidebar.title("Threshold Settings")
-# Horizontal radio buttons for Score Threshold and Reads Threshold
-col1, col2 = st.sidebar.columns(2)
-with col1:
-    score_threshold = st.radio('Score Threshold', [0, 1, 2, 3, 4], index=0, horizontal=True)
-with col2:
-    reads_threshold = st.radio('Reads Threshold', [1, 10, 100, 1000, 10000], index=0, horizontal=True)
+# Radio buttons for Score Threshold and Reads Threshold with horizontal options
+score_threshold = st.sidebar.radio('Score Threshold', [0, 1, 2, 3, 4], index=0, horizontal=True)
+reads_threshold = st.sidebar.radio('Reads Threshold', [1, 10, 100, 1000, 10000], index=0, horizontal=True)
 
-
-# Display Data
+# Display Dat
 st.title("Bacteria Data Comparison App")
 
 if show_curated:
