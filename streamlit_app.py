@@ -27,11 +27,12 @@ show_input = st.sidebar.checkbox('Show first few lines of Input CSV')
 
 # Sidebar - Threshold Settings
 st.sidebar.title("Threshold Settings")
+
 # Radio buttons for Score Threshold and Reads Threshold with horizontal options
 score_threshold = st.sidebar.radio('Score Threshold', [0, 1, 2, 3, 4], index=0, horizontal=True)
 reads_threshold = st.sidebar.radio('Reads Threshold', [1, 10, 100, 1000, 10000], index=0, horizontal=True)
 
-# Display Dat
+# Display Data
 st.title("Bacteria Data Comparison App")
 
 if show_curated:
@@ -47,12 +48,25 @@ if show_input:
     st.dataframe(input_df.head())
 
 # Calculate Stats
-st.subheader("Statistics")
 num_rows = len(input_df)
 matching_rows = input_df[input_df['#Datasets'].isin(curated_df['Species'])].shape[0]
 
-st.write(f"Number of rows in input CSV: {num_rows}")
-st.write(f"Number of rows matching the curated list of names: {matching_rows}")
+def calculate_threshold_stats(input_df, reads_threshold):
+    location_columns = [col for col in input_df.columns if col.startswith('loc')]
+    thresh_rows = input_df[location_columns].apply(lambda x: any(x > reads_threshold), axis=1).sum()
+    return thresh_rows
+
+thresh_rows = calculate_threshold_stats(input_df, reads_threshold)
+
+# Display Stats Table
+st.subheader("Statistics")
+st.write(f"**Threshold: Score {score_threshold}, Count {reads_threshold}**")
+stats_df = pd.DataFrame({
+    'Num': [num_rows],
+    'Matched': [matching_rows],
+    'Thresh': [thresh_rows]
+})
+st.table(stats_df)
 
 # Filtering Based on Thresholds
 def filter_bacteria(input_df, curated_df, score_weights, score_threshold, reads_threshold):
@@ -61,11 +75,11 @@ def filter_bacteria(input_df, curated_df, score_weights, score_threshold, reads_
     location_columns = [col for col in input_df.columns if col.startswith('loc')]
 
     # Determine if any location's reads exceed the threshold
-    filtered_df['Location Counts Above Threshold'] = filtered_df[location_columns].apply(lambda x: x[x > reads_threshold].count(), axis=1)
-    filtered_df['Location Details'] = filtered_df[location_columns].apply(lambda x: {loc: count for loc, count in x.items() if count > reads_threshold}, axis=1)
+    filtered_df['Num loc'] = filtered_df[location_columns].apply(lambda x: x[x > reads_threshold].count(), axis=1)
+    filtered_df['Locations'] = filtered_df[location_columns].apply(lambda x: {loc: count for loc, count in x.items() if count > reads_threshold}, axis=1)
 
     # Keep rows where location count exceeds threshold
-    filtered_df = filtered_df[filtered_df['Location Counts Above Threshold'] > 0]
+    filtered_df = filtered_df[filtered_df['Num loc'] > 0]
 
     # Score calculation based on weights
     matching_species = filtered_df['#Datasets'].isin(curated_df['Species'])
@@ -75,11 +89,9 @@ def filter_bacteria(input_df, curated_df, score_weights, score_threshold, reads_
     # Filter based on score threshold
     filtered_df = filtered_df[filtered_df['Weight Score'] >= score_threshold]
 
-    return filtered_df[['#Datasets', 'Location Counts Above Threshold', 'Location Details']]
+    return filtered_df[['#Datasets', 'Num loc', 'Locations']].rename(columns={'#Datasets': 'Species'})
 
 filtered_bacteria = filter_bacteria(input_df, curated_df, score_weights, score_threshold, reads_threshold)
 
 st.subheader("Filtered Bacteria List")
 st.dataframe(filtered_bacteria)
-
-
