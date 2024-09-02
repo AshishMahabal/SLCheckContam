@@ -1,73 +1,84 @@
 import streamlit as st
 import pandas as pd
-import io
-from checkContaminants import location_contamination
+import json
 
-st.title("Contamination Analysis")
+# Load Data
+@st.cache_data
+def load_data():
+    # Load curated species list
+    curated_df = pd.read_csv('data/curated_species.csv')
 
-# Sidebar inputs
-st.sidebar.header("Input Parameters")
+    # Load score weights
+    with open('data/score_weights.txt', 'r') as f:
+        score_weights = json.load(f)
 
-uploaded_file = st.sidebar.file_uploader("Upload Locations Data File", type=["csv", "json", "tsv"])
-outfile = st.sidebar.selectbox("Output Format", ["terminal", "txt", "json", "csv", "tsv"])
-noheader = st.sidebar.checkbox("CSV/TSV file does not have a header")
+    # Load input comparison CSV
+    input_df = pd.read_csv('data/sample-infile.csv')
 
-sort_order = st.sidebar.text_input("Sort Order (S: Score, L: Locations, A: Alphabetic, I: Input order)", "SLA")
-local_threshold = st.sidebar.number_input("Local threshold for location reads", value=2000)
-score_threshold = st.sidebar.number_input("Score threshold for positive contaminants", value=1.0, step=0.1)
-datfile = st.sidebar.text_input("Curated species file", "curated_species.csv")
-config_file = st.sidebar.text_input("Score weight config file", "score_weights.txt")
+    return curated_df, score_weights, input_df
 
-v_option = st.sidebar.checkbox("Show summary table (Species, Scores, Number of Locations)")
-vv_option = st.sidebar.checkbox("Show detailed summary table (including Location Names)")
-pdf_option = st.sidebar.checkbox("Create PDF of contamination report")
-logchart_option = st.sidebar.checkbox("Use log scale for read bars in 3rd chart")
+curated_df, score_weights, input_df = load_data()
 
-if uploaded_file is not None:
-    # Read the file
-    file_contents = uploaded_file.read()
-    file_type = uploaded_file.name.split('.')[-1]
-    
-    # Create a BytesIO object
-    file_buffer = io.BytesIO(file_contents)
-    
-    # Initialize location_contamination object
-    loc = location_contamination(curated=datfile, config=config_file, local=local_threshold)
-    
-    # Prepare arguments for get_score method
-    kwargs = {
-        "file": file_buffer,
-        "t": score_threshold,
-        "v": v_option,
-        "vv": vv_option,
-        "pdf": pdf_option,
-        "outfile": "terminal",  # We'll capture the output and display it in Streamlit
-        "sort_species": sort_order.lower(),
-        "csv_header": not noheader,
-        "local_threshold": local_threshold,
-        "logchart": logchart_option,
-        "curated": datfile,
-        "config": config_file,
-        "local": local_threshold
-    }
-    
-    # Capture the output
-    output = io.StringIO()
-    import sys
-    sys.stdout = output
-    
-    # Run the analysis
-    loc.get_score(**kwargs)
-    
-    # Reset stdout
-    sys.stdout = sys.__stdout__
-    
-    # Display the output in the main area
-    st.text(output.getvalue())
-    
-    # If PDF was generated, provide a download link
-    if pdf_option:
-        st.write("PDF report generated. Please check your local directory.")
+# Sidebar - Display options
+st.sidebar.title("Display Options")
+show_curated = st.sidebar.checkbox('Show first few lines of Curated List')
+show_weights = st.sidebar.checkbox('Show Score Weights')
+show_input = st.sidebar.checkbox('Show first few lines of Input CSV')
 
-else:
-    st.write("Please upload a file to begin the analysis.")
+# Sidebar - Threshold Settings
+st.sidebar.title("Threshold Settings")
+score_threshold = st.sidebar.radio('Select Score Threshold', [0, 1, 2, 3, 4], index=0)
+reads_threshold = st.sidebar.selectbox('Select Reads Threshold', [1, 10, 100, 1000, 10000], index=0)
+
+# Display Data
+st.title("Bacteria Data Comparison App")
+
+if show_curated:
+    st.subheader("Curated Species List (First Few Lines)")
+    st.dataframe(curated_df.head())
+
+if show_weights:
+    st.subheader("Score Weights")
+    st.json(score_weights)
+
+if show_input:
+    st.subheader("Input Comparison CSV (First Few Lines)")
+    st.dataframe(input_df.head())
+
+# Calculate Stats
+st.subheader("Statistics")
+num_rows = len(input_df)
+matching_rows = input_df[input_df['#Datasets'].isin(curated_df['Species'])].shape[0]
+
+st.write(f"Number of rows in input CSV: {num_rows}")
+st.write(f"Number of rows matching the curated list of names: {matching_rows}")
+
+# Filtering Based on Thresholds
+def filter_bacteria(input_df, curated_df, score_weights, score_threshold, reads_threshold):
+    # Filter based on reads threshold
+    filtered_df = input_df.copy()
+    location_columns = [col for col in input_df.columns if col.startswith('loc')]
+
+    # Determine if any location's reads exceed the threshold
+    filtered_df['Location Counts Above Threshold'] = filtered_df[location_columns].apply(lambda x: x[x > reads_threshold].count(), axis=1)
+    filtered_df['Location Details'] = filtered_df[location_columns].apply(lambda x: {loc: count for loc, count in x.items() if count > reads_threshold}, axis=1)
+
+    # Keep rows where location count exceeds threshold
+    filtered_df = filtered_df[filtered_df['Location Counts Above Threshold'] > 0]
+
+    # Score calculation based on weights
+    matching_species = filtered_df['#Datasets'].isin(curated_df['Species'])
+    filtered_df = filtered_df[matching_species]
+    filtered_df['Weight Score'] = filtered_df['#Datasets'].apply(lambda x: sum(curated_df[curated_df['Species'] == x][list(score_weights.keys())].values.flatten() * list(score_weights.values())))
+
+    # Filter based on score threshold
+    filtered_df = filtered_df[filtered_df['Weight Score'] >= score_threshold]
+
+    return filtered_df[['#Datasets', 'Location Counts Above Threshold', 'Location Details']]
+
+filtered_bacteria = filter_bacteria(input_df, curated_df, score_weights, score_threshold, reads_threshold)
+
+st.subheader("Filtered Bacteria List")
+st.dataframe(filtered_bacteria)
+
+
