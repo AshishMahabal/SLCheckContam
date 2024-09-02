@@ -46,7 +46,9 @@ else:
 st.sidebar.title("Contam Weights")
 
 # Initialize weights with defaults
-score_weights = default_score_weights.copy()
+if 'score_weights' not in st.session_state:
+    st.session_state['score_weights'] = default_score_weights.copy()
+
 weights_expander = st.sidebar.expander("Adjust Contam Weights", expanded=False)
 
 with weights_expander:
@@ -54,29 +56,26 @@ with weights_expander:
 
     # Create form elements for each weight
     weight_inputs = {}
-    for key in score_weights.keys():
-        weight_inputs[key] = st.number_input(f"Weight for {key}", min_value=0, max_value=1, value=score_weights[key])
+    for key in st.session_state['score_weights'].keys():
+        weight_inputs[key] = st.number_input(f"Weight for {key}", min_value=0, max_value=1, value=st.session_state['score_weights'][key])
 
     # Update the weights from the input fields
-    for key in score_weights.keys():
-        score_weights[key] = weight_inputs[key]
+    for key in st.session_state['score_weights'].keys():
+        st.session_state['score_weights'][key] = weight_inputs[key]
 
     # Restore default weights button
     if st.button("Restore Default Weights"):
         # Reset to default weights
-        score_weights = default_score_weights.copy()
-        # Recreate weight adjusters with default values
-        for key in score_weights.keys():
-            weight_inputs[key] = score_weights[key]
-        # Display the outputs again
-        st.session_state['recompute_trigger'] = True
+        st.session_state['score_weights'] = default_score_weights.copy()
+        # Trigger a rerun to reset input fields
+        st.rerun()
 
     # Option to upload custom weights file
     st.write("Upload a custom weights file (JSON format).")
     custom_weights_file = st.file_uploader("Upload a JSON file for weights", type="json")
     if custom_weights_file is not None:
-        score_weights = load_weights_file(custom_weights_file)
-        st.session_state['recompute_trigger'] = True
+        st.session_state['score_weights'] = load_weights_file(custom_weights_file)
+        st.rerun()
 
 # Sidebar - Threshold Settings
 st.sidebar.title("Threshold Settings")
@@ -141,7 +140,7 @@ def display_outputs():
 
         return filtered_df[['#Datasets', 'Num loc', 'Locations']].rename(columns={'#Datasets': 'Species'})
 
-    filtered_bacteria = filter_bacteria(matching_rows_df, curated_df, score_weights, score_threshold, reads_threshold)
+    filtered_bacteria = filter_bacteria(matching_rows_df, curated_df, st.session_state['score_weights'], score_threshold, reads_threshold)
     thresh_rows = calculate_threshold_stats(filtered_bacteria)
 
     # Display Stats Table
@@ -158,8 +157,7 @@ def display_outputs():
     st.dataframe(filtered_bacteria)
 
 # Display outputs based on automatic or manual compute option
-if recompute_automatically or st.session_state.get('recompute_trigger', False):
+if recompute_automatically:
     display_outputs()
-    st.session_state['recompute_trigger'] = False
 elif 'recompute_button' in locals() and recompute_button:
     display_outputs()
