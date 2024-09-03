@@ -223,8 +223,9 @@ def display_outputs():
         # Score calculation based on weights
         filtered_df["Weight Score"] = filtered_df[species_column].apply(
             lambda x: sum(
-                curated_df[curated_df["Species"] == x][list(score_weights.keys())]
-                .values.flatten()
+                curated_df[curated_df["Species"] == x][
+                    list(score_weights.keys())
+                ].values.flatten()
                 * list(score_weights.values())
             )
         )
