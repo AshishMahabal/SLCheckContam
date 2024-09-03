@@ -1,6 +1,8 @@
-import streamlit as st
-import pandas as pd
 import json
+
+import pandas as pd
+import streamlit as st
+
 
 # Load Data
 @st.cache_data
@@ -70,8 +72,10 @@ with weights_expander:
     weight_inputs = {}
     for key in st.session_state["score_weights"].keys():
         weight_inputs[key] = st.number_input(
-            f"Weight for {key}", min_value=0, max_value=1,
-            value=st.session_state["score_weights"][key]
+            f"Weight for {key}",
+            min_value=0,
+            max_value=1,
+            value=st.session_state["score_weights"][key],
         )
 
     # Update the weights from the input fields
@@ -129,9 +133,7 @@ def display_outputs():
     # Calculate Stats
     num_rows = len(input_df)
     species_column = "#Datasets"
-    matching_rows_df = input_df[
-        input_df[species_column].isin(curated_df["Species"])
-    ]
+    matching_rows_df = input_df[input_df[species_column].isin(curated_df["Species"])]
     matching_rows = matching_rows_df.shape[0]
 
     # Determine location columns (all except the first column)
@@ -144,8 +146,7 @@ def display_outputs():
 
     # Filtering Based on Thresholds
     def filter_bacteria(
-        matching_rows_df, curated_df, score_weights,
-        score_threshold, reads_threshold
+        matching_rows_df, curated_df, score_weights, score_threshold, reads_threshold
     ):
         # Filter based on reads threshold
         filtered_df = matching_rows_df.copy()
@@ -155,8 +156,10 @@ def display_outputs():
             lambda x: x[x > reads_threshold].count(), axis=1
         )
         filtered_df["Locations"] = filtered_df[location_columns].apply(
-            lambda x: {loc: count for loc, count in x.items() if count > reads_threshold},
-            axis=1
+            lambda x: {
+                loc: count for loc, count in x.items() if count > reads_threshold
+            },
+            axis=1,
         )
 
         # Keep rows where location count exceeds threshold
@@ -165,8 +168,10 @@ def display_outputs():
         # Score calculation based on weights
         filtered_df["Weight Score"] = filtered_df[species_column].apply(
             lambda x: sum(
-                curated_df[curated_df["Species"] == x][list(score_weights.keys())]
-                .values.flatten() * list(score_weights.values())
+                curated_df[curated_df["Species"] == x][
+                    list(score_weights.keys())
+                ].values.flatten()
+                * list(score_weights.values())
             )
         )
 
@@ -178,19 +183,20 @@ def display_outputs():
         )
 
     filtered_bacteria = filter_bacteria(
-        matching_rows_df, curated_df, st.session_state["score_weights"],
-        score_threshold, reads_threshold
+        matching_rows_df,
+        curated_df,
+        st.session_state["score_weights"],
+        score_threshold,
+        reads_threshold,
     )
     thresh_rows = calculate_threshold_stats(filtered_bacteria)
 
     # Display Stats Table
     st.subheader("Statistics")
     st.write(f"**Threshold: Score {score_threshold}, Count {reads_threshold}**")
-    stats_df = pd.DataFrame({
-        "Num": [num_rows],
-        "Matched": [matching_rows],
-        "Thresh": [thresh_rows]
-    })
+    stats_df = pd.DataFrame(
+        {"Num": [num_rows], "Matched": [matching_rows], "Thresh": [thresh_rows]}
+    )
     st.table(stats_df)
 
     st.subheader("Filtered Bacteria List")
