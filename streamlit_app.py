@@ -30,6 +30,57 @@ def load_weights_file(uploaded_file):
     return json.load(uploaded_file)
 
 
+def show_welcome_screen():
+    """Display the welcome screen with an introduction to the app."""
+    st.title("Welcome to Check Contamination")
+    st.write(
+        """
+        This app allows you to compare a list of bacteria species against a curated list
+        with various properties, such as temperature tolerance and oxygen levels. You can:
+        
+        - Upload your own bacteria dataset in CSV format.
+        - Adjust weights for different bacteria properties to customize filtering.
+        - Set score and read thresholds to filter results.
+        - View filtered bacteria lists and statistics dynamically.
+        
+        ### Input CSV Format
+        Your CSV file should have the following format:
+
+        | #Datasets                      | loc1 | loc2 | loc3 | ... |
+        |--------------------------------|------|------|------|-----|
+        | Acidobacteria bacterium Mor1   | 200  | 1240 | 0    | ... |
+        | Acidipila rosea                | 300  | 4240 | 0    | ... |
+
+        - **`#Datasets` Column**: First column must be named `#Datasets` with bacteria names.
+        - **Location Columns**: Subsequent columns represent locations with measurement counts.
+
+        Use the sidebar to navigate between options and configure your settings.
+        """
+    )
+
+
+def show_credits():
+    """Display the credits screen."""
+    st.title("Credits")
+    st.write(
+        """
+        **Original project: Ashish Mahabal and Nitin K Singh with Nishka Arora and Moogega Cooper.**
+
+        Details ...
+        """
+    )
+
+
+# Sidebar - Introduction Link
+st.sidebar.title("Check Contamination")
+if st.sidebar.button("Introduction"):
+    show_welcome_screen()
+
+# Display the welcome screen initially
+if "introduction_shown" not in st.session_state:
+    show_welcome_screen()
+    st.session_state["introduction_shown"] = True
+
 # Sidebar - Display options
 st.sidebar.title("Display Options")
 show_curated = st.sidebar.checkbox("Show first few lines of Curated List")
@@ -118,6 +169,10 @@ recompute_automatically = st.sidebar.checkbox("Recompute automatically", value=T
 if not recompute_automatically:
     recompute_button = st.sidebar.button("Compute")
 
+# Sidebar - Credits Link
+if st.sidebar.button("Credits"):
+    show_credits()
+
 
 def display_outputs():
     # Display Data
@@ -168,9 +223,8 @@ def display_outputs():
         # Score calculation based on weights
         filtered_df["Weight Score"] = filtered_df[species_column].apply(
             lambda x: sum(
-                curated_df[curated_df["Species"] == x][
-                    list(score_weights.keys())
-                ].values.flatten()
+                curated_df[curated_df["Species"] == x][list(score_weights.keys())]
+                .values.flatten()
                 * list(score_weights.values())
             )
         )
