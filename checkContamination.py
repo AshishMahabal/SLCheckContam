@@ -1,4 +1,3 @@
-
 class ContaminationChecker:
     """Class to perform contamination checks and filtering on bacteria data."""
 
