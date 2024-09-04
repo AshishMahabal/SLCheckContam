@@ -2,15 +2,15 @@
 
 ## Concept Development
 
-Ashish Mahabal (Caltech) and Nitin K Singh
-Original coding: Nishka Arora (Caltech SURF, 2021)
-Moogega Cooper
+- Ashish Mahabal (Caltech) and Nitin K Singh
+- Original coding: Nishka Arora (Caltech SURF, 2021)
+- Moogega Cooper
 
 ## Later developments (to be incorporated)
 
-Subin Kim (Caltech SURF, 2022)
-Progyan Das (IIT Gandhinagar SURF at Caltech, 2023)
-Sanskriti Shindadkar (UCLA, 2024)
+- Subin Kim (Caltech SURF, 2022)
+- Progyan Das (IIT Gandhinagar SURF at Caltech, 2023)
+- Sanskriti Shindadkar (UCLA, 2024)
 
 ## Details
 
