@@ -33,15 +33,15 @@ st.sidebar.title("Check Contamination")
 # Sidebar - Credits Link
 col1, col2 = st.sidebar.columns(2)
 if col1.button("Introduction"):
-    st.session_state['show_input_preview'] = False  # Turn off display of input CSV
-    st.session_state['show_curated_preview'] = False  # Turn off display of curated CSV
-    st.session_state['Recompute automatically'] = False  # Turn off auto computation
+    st.session_state["show_input_preview"] = False  # Turn off display of input CSV
+    st.session_state["show_curated_preview"] = False  # Turn off display of curated CSV
+    st.session_state["Recompute automatically"] = False  # Turn off auto computation
     display_markdown("INTRODUCTION.md")
 if col2.button("Credits"):
     display_markdown("CREDITS.md")
-    st.session_state['show_input_preview'] = False  # Turn off display of input CSV
-    st.session_state['show_curated_preview'] = False  # Turn off display of curated CSV
-    st.session_state['Recompute automatically'] = False  # Turn off auto computation
+    st.session_state["show_input_preview"] = False  # Turn off display of input CSV
+    st.session_state["show_curated_preview"] = False  # Turn off display of curated CSV
+    st.session_state["Recompute automatically"] = False  # Turn off auto computation
 
 # Display the introduction screen initially
 if "introduction_shown" not in st.session_state:
@@ -69,8 +69,9 @@ else:
     else:
         st.warning("Please upload a CSV file for comparison.")
         input_df = None  # Set input_df to None if no file is uploaded
-        st.session_state['show_input_preview'] = False  # Turn off autodisplay of first 5 lines of input CSV
-        st.session_state['Recompute automatically'] = False  # Turn off auto computation
+        # Turn off autodisplay of first 5 lines of input CSV and auto computation
+        st.session_state["show_input_preview"] = False
+        st.session_state["Recompute automatically"] = False
 
 # Continue displaying the rest of the sidebar menu regardless of file upload status
 
@@ -136,14 +137,11 @@ reads_threshold = st.sidebar.radio(
 # Sidebar - Recompute Option
 st.sidebar.title("Recompute Options")
 recompute_automatically = st.sidebar.checkbox(
-    "Recompute automatically",
-    value=True if input_df is not None else False
+    "Recompute automatically", value=True if input_df is not None else False
 )
 
 if not recompute_automatically:
     recompute_button = st.sidebar.button("Compute")
-        
-
 
 
 def display_outputs():
