@@ -96,7 +96,7 @@ with weights_expander:
         weight_inputs[key] = st.number_input(
             f"Weight for {key}",
             min_value=0,
-            max_value=1,
+            max_value=2,
             value=st.session_state["score_weights"][key],
         )
 
