@@ -129,4 +129,4 @@ If you have any questions, encounter any issues, or have suggestions for
 improvement, feel free to reach out via the credits section on the app or open
 an issue on the GitHub repository.
 
-Enjoy using **Check Contamination**!
+Enjoy using [**Check Contamination**](https://checkcontam.streamlit.app/)!
