@@ -17,7 +17,7 @@ Your CSV file should have the following format:
 | Acidobacteria bacterium Mor1   | 200  | 1240 | 0    | ... |
 | Acidipila rosea                | 300  | 4240 | 0    | ... |
 
-- **`#Datasets` Column**: First column must be named `#Datasets` with bacteria names.
+- **`Species` Column**: First column must contain bacteria names.
 - **Location Columns**: Subsequent columns represent locations with measurement counts.
 
 Use the sidebar to navigate between options and configure your settings.

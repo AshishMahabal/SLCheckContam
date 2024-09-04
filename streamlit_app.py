@@ -168,12 +168,27 @@ def display_outputs():
     st.subheader("Statistics")
     st.write(f"**Threshold: Score {score_threshold}, Count {reads_threshold}**")
     stats_df = pd.DataFrame(
-        {"Num": [len(input_df)], "Matched": [matching_rows], "Thresh": [thresh_rows]}
+        {
+            "Num": [len(input_df)],
+            "Matched": [matching_rows],
+            "Above Threshold": [thresh_rows],
+        }
     )
     st.table(stats_df)
 
     st.subheader("Filtered Bacteria List")
-    st.dataframe(filtered_bacteria)
+    st.dataframe(filtered_bacteria.head(100))
+
+    col1, col2, col3 = st.columns(3)
+    show_unmatched = col1.checkbox("Show top unmatched rows", value=False)
+    n = col2.number_input(
+        "Number of rows to display", min_value=1, max_value=20, value=10
+    )
+    if show_unmatched:
+        st.subheader("Top Unmatched Rows")
+        col3.dataframe(
+            contamination_checker.non_matching_rows_df.iloc[:n, 0].to_frame()
+        )
 
 
 # Display outputs based on automatic or manual compute option
