@@ -3,6 +3,9 @@ import json
 import pandas as pd
 import streamlit as st
 
+from checkContamination import ContaminationChecker
+from display_utils import display_markdown
+
 
 # Load Data
 @st.cache_data
@@ -19,66 +22,17 @@ def load_data():
 
 curated_df, default_score_weights = load_data()
 
+# Initialize Contamination Checker
+contamination_checker = ContaminationChecker(curated_df, default_score_weights)
 
-def load_comparison_file(uploaded_file):
-    """Read comparison CSV file."""
-    return pd.read_csv(uploaded_file)
-
-
-def load_weights_file(uploaded_file):
-    """Read custom weights JSON file."""
-    return json.load(uploaded_file)
-
-
-def show_welcome_screen():
-    """Display the welcome screen with an introduction to the app."""
-    st.title("Welcome to Check Contamination")
-    st.write(
-        """
-        This app allows you to compare a list of bacteria species against a curated list
-        with various properties, such as temperature tolerance and oxygen levels. You can:
-
-        - Upload your own bacteria dataset in CSV format.
-        - Adjust weights for different bacteria properties to customize filtering.
-        - Set score and read thresholds to filter results.
-        - View filtered bacteria lists and statistics dynamically.
-
-        ### Input CSV Format
-        Your CSV file should have the following format:
-
-        | #Datasets                      | loc1 | loc2 | loc3 | ... |
-        |--------------------------------|------|------|------|-----|
-        | Acidobacteria bacterium Mor1   | 200  | 1240 | 0    | ... |
-        | Acidipila rosea                | 300  | 4240 | 0    | ... |
-
-        - **`#Datasets` Column**: First column must be named `#Datasets` with bacteria names.
-        - **Location Columns**: Subsequent columns represent locations with measurement counts.
-
-        Use the sidebar to navigate between options and configure your settings.
-        """
-    )
-
-
-def show_credits():
-    """Display the credits screen."""
-    st.title("Credits")
-    st.write(
-        """
-        **Original project: Ashish Mahabal and Nitin K Singh with Nishka Arora and Moogega Cooper.**
-
-        Details ...
-        """
-    )
-
-
-# Sidebar - Introduction Link
-st.sidebar.title("Check Contamination")
+# Sidebar - Menu Options
+st.sidebar.title("Menu")
 if st.sidebar.button("Introduction"):
-    show_welcome_screen()
+    display_markdown("INTRODUCTION.md")
 
-# Display the welcome screen initially
+# Display the introduction screen initially
 if "introduction_shown" not in st.session_state:
-    show_welcome_screen()
+    display_markdown("INTRODUCTION.md")
     st.session_state["introduction_shown"] = True
 
 # Sidebar - Display options
@@ -98,7 +52,7 @@ else:
         "Upload a CSV file for comparison", type="csv"
     )
     if uploaded_file is not None:
-        input_df = load_comparison_file(uploaded_file)
+        input_df = pd.read_csv(uploaded_file)
     else:
         st.warning("Please upload a CSV file for comparison.")
         st.stop()
@@ -147,7 +101,7 @@ with weights_expander:
         "Upload a JSON file for weights", type="json"
     )
     if custom_weights_file is not None:
-        st.session_state["score_weights"] = load_weights_file(custom_weights_file)
+        st.session_state["score_weights"] = json.load(custom_weights_file)
         st.session_state["weights_expanded"] = True
         st.session_state["recompute_trigger"] = True
 
@@ -171,12 +125,12 @@ if not recompute_automatically:
 
 # Sidebar - Credits Link
 if st.sidebar.button("Credits"):
-    show_credits()
+    display_markdown("CREDITS.md")
 
 
 def display_outputs():
     # Display Data
-    st.title("Bacteria Data Comparison App")
+    st.title("Check Contamination")
 
     if show_curated:
         st.subheader("Curated Species List (First Few Lines)")
@@ -185,72 +139,20 @@ def display_outputs():
     st.subheader("Input Comparison CSV (First Few Lines)")
     st.dataframe(input_df.head())
 
-    # Calculate Stats
-    num_rows = len(input_df)
-    species_column = "#Datasets"
-    matching_rows_df = input_df[input_df[species_column].isin(curated_df["Species"])]
-    matching_rows = matching_rows_df.shape[0]
-
-    # Determine location columns (all except the first column)
-    location_columns = input_df.columns[1:]
-
-    def calculate_threshold_stats(filtered_df):
-        # Count the number of rows that pass both location and weight thresholds
-        thresh_rows = filtered_df.shape[0]
-        return thresh_rows
-
-    # Filtering Based on Thresholds
-    def filter_bacteria(
-        matching_rows_df, curated_df, score_weights, score_threshold, reads_threshold
-    ):
-        # Filter based on reads threshold
-        filtered_df = matching_rows_df.copy()
-
-        # Determine if any location's reads exceed the threshold
-        filtered_df["Num loc"] = filtered_df[location_columns].apply(
-            lambda x: x[x > reads_threshold].count(), axis=1
-        )
-        filtered_df["Locations"] = filtered_df[location_columns].apply(
-            lambda x: {
-                loc: count for loc, count in x.items() if count > reads_threshold
-            },
-            axis=1,
-        )
-
-        # Keep rows where location count exceeds threshold
-        filtered_df = filtered_df[filtered_df["Num loc"] > 0]
-
-        # Score calculation based on weights
-        filtered_df["Weight Score"] = filtered_df[species_column].apply(
-            lambda x: sum(
-                curated_df[curated_df["Species"] == x][
-                    list(score_weights.keys())
-                ].values.flatten()
-                * list(score_weights.values())
-            )
-        )
-
-        # Filter based on score threshold
-        filtered_df = filtered_df[filtered_df["Weight Score"] >= score_threshold]
-
-        return filtered_df[["#Datasets", "Num loc", "Locations"]].rename(
-            columns={"#Datasets": "Species"}
-        )
-
-    filtered_bacteria = filter_bacteria(
-        matching_rows_df,
-        curated_df,
-        st.session_state["score_weights"],
-        score_threshold,
-        reads_threshold,
+    # Run computations
+    (
+        matching_rows,
+        filtered_bacteria,
+        thresh_rows,
+    ) = contamination_checker.filter_bacteria(
+        input_df, st.session_state["score_weights"], score_threshold, reads_threshold
     )
-    thresh_rows = calculate_threshold_stats(filtered_bacteria)
 
     # Display Stats Table
     st.subheader("Statistics")
     st.write(f"**Threshold: Score {score_threshold}, Count {reads_threshold}**")
     stats_df = pd.DataFrame(
-        {"Num": [num_rows], "Matched": [matching_rows], "Thresh": [thresh_rows]}
+        {"Num": [len(input_df)], "Matched": [matching_rows], "Thresh": [thresh_rows]}
     )
     st.table(stats_df)
 
