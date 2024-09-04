@@ -2,7 +2,6 @@ import json
 
 import pandas as pd
 import streamlit as st
-
 from checkContamination import ContaminationChecker
 from display_utils import display_markdown
 
