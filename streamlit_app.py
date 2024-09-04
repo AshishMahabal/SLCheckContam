@@ -26,9 +26,22 @@ curated_df, default_score_weights = load_data()
 contamination_checker = ContaminationChecker(curated_df, default_score_weights)
 
 # Sidebar - Menu Options
-st.sidebar.title("Menu")
-if st.sidebar.button("Introduction"):
+st.sidebar.title("Check Contamination")
+# if st.sidebar.button("Introduction"):
+#     display_markdown("INTRODUCTION.md")
+
+# Sidebar - Credits Link
+col1, col2 = st.sidebar.columns(2)
+if col1.button("Introduction"):
+    st.session_state['show_input_preview'] = False  # Turn off display of input CSV
+    st.session_state['show_curated_preview'] = False  # Turn off display of curated CSV
+    st.session_state['Recompute automatically'] = False  # Turn off auto computation
     display_markdown("INTRODUCTION.md")
+if col2.button("Credits"):
+    display_markdown("CREDITS.md")
+    st.session_state['show_input_preview'] = False  # Turn off display of input CSV
+    st.session_state['show_curated_preview'] = False  # Turn off display of curated CSV
+    st.session_state['Recompute automatically'] = False  # Turn off auto computation
 
 # Display the introduction screen initially
 if "introduction_shown" not in st.session_state:
@@ -37,7 +50,7 @@ if "introduction_shown" not in st.session_state:
 
 # Sidebar - Display options
 st.sidebar.title("Display Options")
-show_curated = st.sidebar.checkbox("Show first few lines of Curated List")
+show_curated = st.sidebar.checkbox("Show first few lines of Curated List", value=False)
 
 # Input File Selection
 st.sidebar.title("Input File")
@@ -55,7 +68,11 @@ else:
         input_df = pd.read_csv(uploaded_file)
     else:
         st.warning("Please upload a CSV file for comparison.")
-        st.stop()
+        input_df = None  # Set input_df to None if no file is uploaded
+        st.session_state['show_input_preview'] = False  # Turn off autodisplay of first 5 lines of input CSV
+        st.session_state['Recompute automatically'] = False  # Turn off auto computation
+
+# Continue displaying the rest of the sidebar menu regardless of file upload status
 
 # Sidebar - Contam Weights settings
 st.sidebar.title("Contam Weights")
@@ -118,14 +135,15 @@ reads_threshold = st.sidebar.radio(
 
 # Sidebar - Recompute Option
 st.sidebar.title("Recompute Options")
-recompute_automatically = st.sidebar.checkbox("Recompute automatically", value=True)
+recompute_automatically = st.sidebar.checkbox(
+    "Recompute automatically",
+    value=True if input_df is not None else False
+)
 
 if not recompute_automatically:
     recompute_button = st.sidebar.button("Compute")
+        
 
-# Sidebar - Credits Link
-if st.sidebar.button("Credits"):
-    display_markdown("CREDITS.md")
 
 
 def display_outputs():
@@ -136,8 +154,9 @@ def display_outputs():
         st.subheader("Curated Species List (First Few Lines)")
         st.dataframe(curated_df.head())
 
-    st.subheader("Input Comparison CSV (First Few Lines)")
-    st.dataframe(input_df.head())
+    if input_df is not None:
+        st.subheader("Input Comparison CSV (First Few Lines)")
+        st.dataframe(input_df.head())
 
     # Run computations
     (
