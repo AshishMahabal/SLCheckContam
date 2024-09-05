@@ -186,7 +186,9 @@ def display_outputs():
         try:
             venn_fig = contamination_checker.generate_venn_diagram(filtered_bacteria)
         except ImportError as e:
-            st.error(f"Error: Required library for Venn diagram not installed. Please check your requirements.txt file. Details: {str(e)}")
+            st.error(
+                f"Error: Required library for Venn diagram not installed. Please check your requirements.txt file. Details: {str(e)}"
+            )
             venn_fig = None
         except ValueError as e:
             st.error(f"Error: Invalid data for Venn diagram. Details: {str(e)}")
