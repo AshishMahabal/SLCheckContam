@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
-from matplotlib_venn import venn3
+from matplotlib_venn import venn2, venn3
+import pandas as pd
 import streamlit as st
 
 
@@ -10,15 +11,13 @@ class ContaminationChecker:
         self.curated_df = curated_df
         self.default_score_weights = score_weights
 
-    def generate_venn_diagram(self, filtered_bacteria):
-        """Generate a Venn diagram of contributing properties."""
+    def flatten_set_of_lists(set_of_lists):
+        flattened_list = [item for sublist in set_of_lists for item in sublist]
+        return set(flattened_list)
 
+    def get_unique_properties(filtered_bacteria):
         # Get unique properties from the 'Contributing Properties' column
-        def flatten_set_of_lists(set_of_lists):
-            flattened_list = [item for sublist in set_of_lists for item in sublist]
-            return set(flattened_list)
-
-        all_properties = flatten_set_of_lists(
+        all_properties = ContaminationChecker.flatten_set_of_lists(
             filtered_bacteria["Contributing Properties"].dropna()
         )
 
@@ -28,32 +27,84 @@ class ContaminationChecker:
             print("Sample of 'Contributing Properties' column:")
             print(filtered_bacteria["Contributing Properties"].head())
 
-        # Select the first three properties for the Venn diagram
-        properties = list(all_properties)[:10]
+        # Get all properties
+        return list(all_properties)
 
-        # Count bacteria for each property
-        property_counts = [
-            sum(
-                prop in item
+    def generate_venn_diagram(self, filtered_bacteria):
+        """Generate a Venn diagram of contributing properties."""
+
+        properties = ContaminationChecker.get_unique_properties(filtered_bacteria)
+        num_properties = len(properties)
+
+        if num_properties == 0:
+            st.write("No contributing properties found.")
+            return None
+        elif num_properties == 1:
+            count = sum(
+                properties[0] in item
                 for item in filtered_bacteria["Contributing Properties"]
                 if isinstance(item, list)
             )
-            for prop in properties
-        ]
-
-        # Create Venn diagram
-        plt.figure(figsize=(4, 4))
-        subsets = [
-            set(
-                filtered_bacteria[
-                    filtered_bacteria["Contributing Properties"].apply(
-                        lambda x: prop in x
-                    )
-                ].index
+            st.write(
+                f"Only one property found: {properties[0]}. {count} bacteria belong to this property."
             )
-            for prop in properties[:3]
-        ]
-        venn = venn3(subsets=subsets, set_labels=properties[:3])
+            return None
+        elif num_properties == 2:
+            subsets = [
+                set(
+                    filtered_bacteria[
+                        filtered_bacteria["Contributing Properties"].apply(
+                            lambda x: prop in x
+                        )
+                    ].index
+                )
+                for prop in properties
+            ]
+            plt.figure(figsize=(4, 4))
+            venn = venn2(subsets=subsets, set_labels=properties)
+        else:
+            # Create three side-by-side dropdowns
+            col1, col2, col3 = st.columns(3)
+            prop1 = col1.selectbox("Property 1", properties, index=0)
+            prop2 = col2.selectbox("Property 2", properties, index=1)
+            prop3 = col3.selectbox(
+                "Property 3",
+                ["None"] + properties,
+                index=3 if num_properties > 2 else 0,
+            )
+
+            if len(set([prop1, prop2, prop3])) < 3 or prop3 == "None":
+                if prop1 == prop2 or (
+                    prop3 != "None" and (prop1 == prop3 or prop2 == prop3)
+                ):
+                    st.warning("Please select distinct properties.")
+                    return None
+
+                subsets = [
+                    set(
+                        filtered_bacteria[
+                            filtered_bacteria["Contributing Properties"].apply(
+                                lambda x: prop in x
+                            )
+                        ].index
+                    )
+                    for prop in [prop1, prop2]
+                ]
+                plt.figure(figsize=(4, 4))
+                venn = venn2(subsets=subsets, set_labels=[prop1, prop2])
+            else:
+                subsets = [
+                    set(
+                        filtered_bacteria[
+                            filtered_bacteria["Contributing Properties"].apply(
+                                lambda x: prop in x
+                            )
+                        ].index
+                    )
+                    for prop in [prop1, prop2, prop3]
+                ]
+                plt.figure(figsize=(4, 4))
+                venn = venn3(subsets=subsets, set_labels=[prop1, prop2, prop3])
 
         # Set title
         plt.title("Contributing Properties of Filtered Bacteria")
@@ -104,6 +155,13 @@ class ContaminationChecker:
         # Keep rows where location count exceeds threshold
         filtered_df = filtered_df[filtered_df["Num loc"] > 0]
 
+        # Check if the filtered DataFrame is empty
+        if filtered_df.empty:
+            # Handle the case where no rows meet the threshold
+            print("Warning: No bacteria species meet the location count threshold.")
+            # For Streamlit, it's better to return early with empty results
+            return 0, 0, 0, 0
+
         # Apply score threshold based on weights
         def calculate_score_and_properties(species):
             species_data = self.curated_df[self.curated_df["Species"] == species]
@@ -141,4 +199,18 @@ class ContaminationChecker:
             ]
         ]
         filtered_bacteria = filtered_bacteria.rename(columns={"Weight Score": "Score"})
-        return matching_rows, filtered_bacteria, thresh_rows
+
+        # Create reverse table: properties and their corresponding bacteria
+        properties = ContaminationChecker.get_unique_properties(filtered_bacteria)
+
+        property_species_data = []
+        for prop in properties:
+            matching_species = filtered_bacteria[
+                filtered_bacteria["Contributing Properties"].apply(lambda x: prop in x)
+            ][self.species_column_name].tolist()
+            property_species_data.append(
+                {"Property": prop, "Matching Species": matching_species}
+            )
+
+        reverse_table = pd.DataFrame(property_species_data)
+        return matching_rows, filtered_bacteria, thresh_rows, reverse_table

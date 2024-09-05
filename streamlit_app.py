@@ -162,9 +162,15 @@ def display_outputs():
         matching_rows,
         filtered_bacteria,
         thresh_rows,
+        reverse_table,
     ) = contamination_checker.filter_bacteria(
         input_df, st.session_state["score_weights"], score_threshold, reads_threshold
     )
+
+    # Handle case where no results were returned
+    if isinstance(filtered_bacteria, int) and filtered_bacteria == 0:
+        st.warning("No bacteria species meet the specified thresholds.")
+        return  # Exit the function early
 
     # Display Stats Table
     st.subheader("Statistics")
@@ -181,10 +187,19 @@ def display_outputs():
     st.subheader("Filtered Bacteria List")
     st.dataframe(filtered_bacteria.head(100))
 
+    show_reverse_table = st.checkbox("Show Reverse Table", value=False)
+    if show_reverse_table:
+        st.subheader("Reverse Table")
+        st.dataframe(reverse_table.head(100))
+
     show_venn = st.checkbox("Show Venn diagram of contributing properties", value=False)
     if show_venn:
         try:
             venn_fig = contamination_checker.generate_venn_diagram(filtered_bacteria)
+            if venn_fig is None:
+                st.info(
+                    "No Venn diagram generated. This may be due to insufficient data or selected properties."
+                )
         except ImportError as e:
             st.error(
                 f"Error: Required library for Venn diagram not installed. Please check your requirements.txt file. Details: {str(e)}"
@@ -196,18 +211,20 @@ def display_outputs():
         except Exception as e:
             st.error(f"Unexpected error generating Venn diagram: {str(e)}")
             venn_fig = None
-        st.pyplot(venn_fig)
 
-        # Save the Venn diagram as PNG for download
-        img_buffer = io.BytesIO()
-        venn_fig.savefig(img_buffer, format="png")
-        img_buffer.seek(0)
-        st.download_button(
-            label="Download Venn Diagram",
-            data=img_buffer,
-            file_name="venn_diagram.png",
-            mime="image/png",
-        )
+        if venn_fig is not None:
+            st.pyplot(venn_fig)
+
+            # Save the Venn diagram as PNG for download
+            img_buffer = io.BytesIO()
+            venn_fig.savefig(img_buffer, format="png")
+            img_buffer.seek(0)
+            st.download_button(
+                label="Download Venn Diagram",
+                data=img_buffer,
+                file_name="venn_diagram.png",
+                mime="image/png",
+            )
 
     col1, col2, col3 = st.columns(3)
     show_unmatched = col1.checkbox("Show top unmatched rows", value=False)
