@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
-from matplotlib_venn import venn2, venn3    
+from matplotlib_venn import venn2, venn3
 
 
 class ContaminationChecker:
