@@ -183,7 +183,17 @@ def display_outputs():
 
     show_venn = st.checkbox("Show Venn diagram of contributing properties", value=False)
     if show_venn:
-        venn_fig = contamination_checker.generate_venn_diagram(filtered_bacteria)
+        try:
+            venn_fig = contamination_checker.generate_venn_diagram(filtered_bacteria)
+        except ImportError as e:
+            st.error(f"Error: Required library for Venn diagram not installed. Please check your requirements.txt file. Details: {str(e)}")
+            venn_fig = None
+        except ValueError as e:
+            st.error(f"Error: Invalid data for Venn diagram. Details: {str(e)}")
+            venn_fig = None
+        except Exception as e:
+            st.error(f"Unexpected error generating Venn diagram: {str(e)}")
+            venn_fig = None
         st.pyplot(venn_fig)
 
         # Save the Venn diagram as PNG for download
