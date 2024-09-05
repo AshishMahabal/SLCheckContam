@@ -1,9 +1,11 @@
+import io
 import json
 
 import pandas as pd
 import streamlit as st
 from checkContamination import ContaminationChecker
 from display_utils import display_markdown
+from matplotlib_venn import venn3
 
 
 # Load Data
@@ -127,7 +129,7 @@ st.sidebar.title("Threshold Settings")
 
 # Radio buttons for Score Threshold and Reads Threshold with horizontal options
 score_threshold = st.sidebar.radio(
-    "Score Threshold", [0, 1, 2, 3, 4], index=0, horizontal=True
+    "Score Threshold", [1, 2, 3, 4, 5], index=0, horizontal=True
 )
 reads_threshold = st.sidebar.radio(
     "Reads Threshold", [1, 10, 100, 1000, 10000], index=0, horizontal=True
@@ -178,6 +180,22 @@ def display_outputs():
 
     st.subheader("Filtered Bacteria List")
     st.dataframe(filtered_bacteria.head(100))
+
+    show_venn = st.checkbox("Show Venn diagram of contributing properties", value=False)
+    if show_venn:
+        venn_fig = contamination_checker.generate_venn_diagram(filtered_bacteria)
+        st.pyplot(venn_fig)
+
+        # Save the Venn diagram as PNG for download
+        img_buffer = io.BytesIO()
+        venn_fig.savefig(img_buffer, format="png")
+        img_buffer.seek(0)
+        st.download_button(
+            label="Download Venn Diagram",
+            data=img_buffer,
+            file_name="venn_diagram.png",
+            mime="image/png",
+        )
 
     col1, col2, col3 = st.columns(3)
     show_unmatched = col1.checkbox("Show top unmatched rows", value=False)
