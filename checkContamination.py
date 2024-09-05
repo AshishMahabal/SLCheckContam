@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
-from matplotlib_venn import venn2, venn3
 import pandas as pd
 import streamlit as st
+from matplotlib_venn import venn2, venn3    
 
 
 class ContaminationChecker:
@@ -11,13 +11,13 @@ class ContaminationChecker:
         self.curated_df = curated_df
         self.default_score_weights = score_weights
 
-    def flatten_set_of_lists(set_of_lists):
+    def flatten_set_of_lists(self, set_of_lists):
         flattened_list = [item for sublist in set_of_lists for item in sublist]
         return set(flattened_list)
 
-    def get_unique_properties(filtered_bacteria):
+    def get_unique_properties(self, filtered_bacteria):
         # Get unique properties from the 'Contributing Properties' column
-        all_properties = ContaminationChecker.flatten_set_of_lists(
+        all_properties = self.flatten_set_of_lists(
             filtered_bacteria["Contributing Properties"].dropna()
         )
 
@@ -33,7 +33,7 @@ class ContaminationChecker:
     def generate_venn_diagram(self, filtered_bacteria):
         """Generate a Venn diagram of contributing properties."""
 
-        properties = ContaminationChecker.get_unique_properties(filtered_bacteria)
+        properties = self.get_unique_properties(filtered_bacteria)
         num_properties = len(properties)
 
         if num_properties == 0:
@@ -201,7 +201,7 @@ class ContaminationChecker:
         filtered_bacteria = filtered_bacteria.rename(columns={"Weight Score": "Score"})
 
         # Create reverse table: properties and their corresponding bacteria
-        properties = ContaminationChecker.get_unique_properties(filtered_bacteria)
+        properties = self.get_unique_properties(filtered_bacteria)
 
         property_species_data = []
         for prop in properties:

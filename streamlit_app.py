@@ -5,7 +5,6 @@ import pandas as pd
 import streamlit as st
 from checkContamination import ContaminationChecker
 from display_utils import display_markdown
-from matplotlib_venn import venn3
 
 
 # Load Data
@@ -202,7 +201,8 @@ def display_outputs():
                 )
         except ImportError as e:
             st.error(
-                f"Error: Required library for Venn diagram not installed. Please check your requirements.txt file. Details: {str(e)}"
+                "Error: Required library for Venn diagram not installed. "
+                f"Please check your requirements.txt file. Details: {str(e)}"
             )
             venn_fig = None
         except ValueError as e:
