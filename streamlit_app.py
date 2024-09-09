@@ -6,43 +6,29 @@ import streamlit as st
 from checkContamination import ContaminationChecker
 from display_utils import display_markdown
 
-
-# Load Data
-@st.cache_data
-def load_data():
-    # Load curated species list
-    curated_df = pd.read_csv("data/curated_species.csv")
-
-    # Load score weights
-    with open("data/score_weights.txt", "r") as f:
-        default_score_weights = json.load(f)
-
-    return curated_df, default_score_weights
-
-
-curated_df, default_score_weights = load_data()
-
-# Initialize Contamination Checker
-contamination_checker = ContaminationChecker(curated_df, default_score_weights)
-
 # Sidebar - Menu Options
 st.sidebar.title("Check Contamination")
 # if st.sidebar.button("Introduction"):
 #     display_markdown("INTRODUCTION.md")
 
-# Sidebar - Credits Link
-col1, col2 = st.sidebar.columns(2)
-if col1.button("Introduction"):
+# Sidebar - markdown links
+col1, col2, col3 = st.sidebar.columns(3)
+if col1.button("Intro"):
     st.session_state["show_input_preview"] = False  # Turn off display of input CSV
     st.session_state["show_curated_preview"] = False  # Turn off display of curated CSV
     st.session_state["Recompute automatically"] = False  # Turn off auto computation
     display_markdown("INTRODUCTION.md")
-if col2.button("Credits"):
+if col2.button("Known Issues"):
+    st.session_state["show_input_preview"] = False  # Turn off display of input CSV
+    st.session_state["show_curated_preview"] = False  # Turn off display of curated CSV
+    st.session_state["Recompute automatically"] = False  # Turn off auto computation
+    display_markdown("ISSUES.md")
+if col3.button("Credits"):
     display_markdown("CREDITS.md")
     st.session_state["show_input_preview"] = False  # Turn off display of input CSV
     st.session_state["show_curated_preview"] = False  # Turn off display of curated CSV
     st.session_state["Recompute automatically"] = False  # Turn off auto computation
-
+    
 # Display the introduction screen initially
 if "introduction_shown" not in st.session_state:
     display_markdown("INTRODUCTION.md")
@@ -50,7 +36,36 @@ if "introduction_shown" not in st.session_state:
 
 # Sidebar - Display options
 st.sidebar.title("Display Options")
+# Load Data
+# Load curated species list
+curated_file = st.sidebar.radio(
+    "Choose curated species list:",
+    ["Curated Species List", "Expanded Semi-Curated List"],
+    format_func=lambda x: x
+)
+
+# Map the selected option to the corresponding file path
+file_path = "data/curated_species.csv" if curated_file == "Curated Species List" else "data/semicurated.csv"
+
 show_curated = st.sidebar.checkbox("Show first few lines of Curated List", value=False)
+
+#@st.cache_data
+def load_data():
+    # Load curated species list
+    curated_df = pd.read_csv(file_path)
+
+    # Load score weights
+    with open("data/score_weights.txt", "r") as f:
+        default_score_weights = json.load(f)
+
+    return curated_df, default_score_weights
+    
+
+curated_df, default_score_weights = load_data()
+
+# Initialize Contamination Checker
+contamination_checker = ContaminationChecker(curated_df, default_score_weights)
+
 
 # Input File Selection
 st.sidebar.title("Input File")
@@ -186,9 +201,9 @@ def display_outputs():
     st.subheader("Filtered Bacteria List")
     st.dataframe(filtered_bacteria.head(100))
 
-    show_reverse_table = st.checkbox("Show Reverse Table", value=False)
+    show_reverse_table = st.checkbox("Show Table by Properties", value=False)
     if show_reverse_table:
-        st.subheader("Reverse Table")
+        st.subheader("Table by Properties")
         st.dataframe(reverse_table.head(100))
 
     show_venn = st.checkbox("Show Venn diagram of contributing properties", value=False)

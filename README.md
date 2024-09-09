@@ -17,6 +17,7 @@ data based on location counts and other properties.
   manually based on user inputs.
 - **Visualize Filtered Results**: View filtered bacteria lists and statistics
   based on your configurations.
+- **Venn Diagram Visualization**: Generate and download Venn diagrams to visualize the distribution of contributing properties among filtered bacteria species.
 
 ## Input File Format
 
