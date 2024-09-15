@@ -175,7 +175,12 @@ recompute_automatically = st.sidebar.checkbox(
 
 if not recompute_automatically:
     recompute_button = st.sidebar.button("Compute")
-
+    # if recompute_button:
+    #     st.session_state["show_intro"] = True  # Set flag for intro display
+    #     st.session_state["recompute_automatically"] = False  # Turn off auto computation
+    #     display_markdown("INTRODUCTION.md")
+    #     st.session_state["show_intro"] = False  # Reset flag after display
+    
 
 def display_outputs():
     # Check if any markdown is being displayed

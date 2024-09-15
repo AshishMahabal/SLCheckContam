@@ -9,15 +9,11 @@ your patience.
 - Details: When the input CSV contains species with ambiguous values in the
 curated list (e.g., value for radiation resistance") we currently do not include
 them in the results.
-- Workaround (if available):
-- Expected resolution date:
 
 ## Issue 2: Results from semi-curated list will indicate lower limits
 
 - Details: The semi-curated list is missing many values, so results will indicate
 lower limits for contamination potential.
-- Workaround (if available):
-- Expected resolution date:
 
 ## Reporting New Issues
 
