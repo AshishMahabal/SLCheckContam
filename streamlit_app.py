@@ -13,22 +13,35 @@ st.sidebar.title("Check Contamination")
 
 # Sidebar - markdown links
 col1, col2, col3 = st.sidebar.columns(3)
+if "show_intro" not in st.session_state:
+    st.session_state["show_intro"] = False
+if "show_issues" not in st.session_state:
+    st.session_state["show_issues"] = False
+if "show_credits" not in st.session_state:
+    st.session_state["show_credits"] = False
+if "recompute_automatically" not in st.session_state:
+    st.session_state[
+        "recompute_automatically"
+    ] = True  # Default to auto recompute being enabled
+
 if col1.button("Intro"):
-    st.session_state["show_input_preview"] = False  # Turn off display of input CSV
-    st.session_state["show_curated_preview"] = False  # Turn off display of curated CSV
-    st.session_state["Recompute automatically"] = False  # Turn off auto computation
+    st.session_state["show_intro"] = True  # Set flag for intro display
+    st.session_state["recompute_automatically"] = False  # Turn off auto computation
     display_markdown("INTRODUCTION.md")
+    st.session_state["show_intro"] = False  # Reset flag after display
+
 if col2.button("Known Issues"):
-    st.session_state["show_input_preview"] = False  # Turn off display of input CSV
-    st.session_state["show_curated_preview"] = False  # Turn off display of curated CSV
-    st.session_state["Recompute automatically"] = False  # Turn off auto computation
+    st.session_state["show_issues"] = True  # Set flag for issues display
+    st.session_state["recompute_automatically"] = False  # Turn off auto computation
     display_markdown("ISSUES.md")
+    st.session_state["show_issues"] = False  # Reset flag after display
+
 if col3.button("Credits"):
+    st.session_state["show_credits"] = True  # Set flag for credits display
+    st.session_state["recompute_automatically"] = False  # Turn off auto computation
     display_markdown("CREDITS.md")
-    st.session_state["show_input_preview"] = False  # Turn off display of input CSV
-    st.session_state["show_curated_preview"] = False  # Turn off display of curated CSV
-    st.session_state["Recompute automatically"] = False  # Turn off auto computation
-    
+    st.session_state["show_credits"] = False  # Reset flag after display
+
 # Display the introduction screen initially
 if "introduction_shown" not in st.session_state:
     display_markdown("INTRODUCTION.md")
@@ -41,15 +54,20 @@ st.sidebar.title("Display Options")
 curated_file = st.sidebar.radio(
     "Choose curated species list:",
     ["Curated Species List", "Expanded Semi-Curated List"],
-    format_func=lambda x: x
+    format_func=lambda x: x,
 )
 
 # Map the selected option to the corresponding file path
-file_path = "data/curated_species.csv" if curated_file == "Curated Species List" else "data/semicurated.csv"
+file_path = (
+    "data/curated_species.csv"
+    if curated_file == "Curated Species List"
+    else "data/semicurated.csv"
+)
 
 show_curated = st.sidebar.checkbox("Show first few lines of Curated List", value=False)
 
-#@st.cache_data
+
+# @st.cache_data
 def load_data():
     # Load curated species list
     curated_df = pd.read_csv(file_path)
@@ -59,7 +77,7 @@ def load_data():
         default_score_weights = json.load(f)
 
     return curated_df, default_score_weights
-    
+
 
 curated_df, default_score_weights = load_data()
 
@@ -160,6 +178,16 @@ if not recompute_automatically:
 
 
 def display_outputs():
+    # Check if any markdown is being displayed
+    # st.write("Intro: ", st.session_state.get("show_intro"))
+    # st.write("Compute: ", st.session_state.get("recompute_automatically"))
+    if (
+        st.session_state.get("show_intro", False)
+        or st.session_state.get("show_issues", False)
+        or st.session_state.get("show_credits", False)
+    ):
+        return  # Exit early if any markdown is displayed
+
     # Display Data
     st.title("Check Contamination")
 

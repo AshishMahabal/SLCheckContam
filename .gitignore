@@ -164,3 +164,4 @@ cython_debug/
 # My own stuff
 # Files
 data/input_files.txt
+data/semicurated_species.csv

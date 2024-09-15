@@ -125,22 +125,32 @@ class ContaminationChecker:
         self.species_column_name = species_column  # Save the column name
         if any(score_weights.values()):
             # Check if the columns indicated by score_weights.keys() exist in the curated file
-            valid_columns = [col for col in score_weights.keys() if col in self.curated_df.columns]
+            valid_columns = [
+                col for col in score_weights.keys() if col in self.curated_df.columns
+            ]
             if valid_columns:
                 # Filter rows where at least one valid column is not None
-                valid_rows = self.curated_df[self.curated_df[valid_columns].notna().any(axis=1)]
+                valid_rows = self.curated_df[
+                    self.curated_df[valid_columns].notna().any(axis=1)
+                ]
                 matching_rows_df = input_df[
                     input_df[species_column].isin(valid_rows["Species"])
                 ]
             else:
-                st.warning("No valid columns found in the curated file for the given score weights.")
+                st.warning(
+                    "No valid columns found in the curated file for the given score weights."
+                )
                 matching_rows_df = pd.DataFrame()  # Empty DataFrame if no valid columns
         else:
             matching_rows_df = pd.DataFrame()  # Empty DataFrame if no weights
         matching_rows = matching_rows_df.shape[0]
-        curated_matching_rows = self.curated_df[self.curated_df['Species'].isin(matching_rows_df[species_column])]
-        columns_to_display = ['Species'] + [col for col in score_weights.keys() if col in curated_matching_rows.columns]
-        #st.write(curated_matching_rows[columns_to_display])
+        curated_matching_rows = self.curated_df[
+            self.curated_df["Species"].isin(matching_rows_df[species_column])
+        ]
+        columns_to_display = ["Species"] + [
+            col for col in score_weights.keys() if col in curated_matching_rows.columns
+        ]
+        # st.write(curated_matching_rows[columns_to_display])
 
         # Identify rows not in curated set
         non_matching_rows_df = input_df[
@@ -179,9 +189,13 @@ class ContaminationChecker:
 
         properties = list(score_weights.keys())
         curated_columns = set(self.curated_df.columns)
-        missing_properties = [prop for prop in properties if prop not in curated_columns]
+        missing_properties = [
+            prop for prop in properties if prop not in curated_columns
+        ]
         if missing_properties:
-            st.info(f"Warning: Properties missing from the curated dataset: {', '.join(missing_properties)}")
+            st.info(
+                f"Warning: Properties missing from the curated dataset: {', '.join(missing_properties)}"
+            )
         properties = [prop for prop in properties if prop in curated_columns]
         weights = [score_weights[prop] for prop in properties]
 
@@ -202,12 +216,13 @@ class ContaminationChecker:
                 print(f"Error processing data for species {species}: {e}")
                 return 0, []
 
-
             # Ensure values and weights have the same length
             min_length = min(len(values), len(weights))
             weighted_values = values[:min_length] * weights[:min_length]
             if len(values) != len(weights):
-                print(f"Warning: Mismatch in length of values ({len(values)}) and weights ({len(weights)}) for species {species}")
+                print(
+                    f"Warning: Mismatch in length of values ({len(values)}) and weights ({len(weights)}) for species {species}"
+                )
             total_score = sum(weighted_values)
 
             contributing_properties = [
@@ -243,11 +258,13 @@ class ContaminationChecker:
             matching_species = filtered_bacteria[
                 filtered_bacteria["Contributing Properties"].apply(lambda x: prop in x)
             ][self.species_column_name].tolist()
-            property_species_data.append({
-                "Property": prop,
-                "Number": len(matching_species),
-                "Matching Species": matching_species
-            })
+            property_species_data.append(
+                {
+                    "Property": prop,
+                    "Number": len(matching_species),
+                    "Matching Species": matching_species,
+                }
+            )
 
         reverse_table = pd.DataFrame(property_species_data)
         return matching_rows, filtered_bacteria, thresh_rows, reverse_table
