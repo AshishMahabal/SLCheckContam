@@ -144,9 +144,9 @@ class ContaminationChecker:
         else:
             matching_rows_df = pd.DataFrame()  # Empty DataFrame if no weights
         matching_rows = matching_rows_df.shape[0]
-        curated_matching_rows = self.curated_df[
-            self.curated_df["Species"].isin(matching_rows_df[species_column])
-        ]
+        # curated_matching_rows = self.curated_df[
+        #    self.curated_df["Species"].isin(matching_rows_df[species_column])
+        # ]
         # columns_to_display = ["Species"] + [
         #    col for col in score_weights.keys() if col in curated_matching_rows.columns
         # ]
