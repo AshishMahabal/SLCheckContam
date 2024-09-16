@@ -28,19 +28,25 @@ if "recompute_automatically" not in st.session_state:
 # Add buttons to each column
 if col1.button("Intro"):
     st.session_state["show_intro"] = True
-    st.session_state["recompute_automatically"] = False  # Uncheck the recompute automatically
+    st.session_state[
+        "recompute_automatically"
+    ] = False  # Uncheck the recompute automatically
     display_markdown("INTRODUCTION.md")
     st.session_state["show_intro"] = False  # Reset flag after display
 
 if col2.button("Known Issues"):
     st.session_state["show_issues"] = True
-    st.session_state["recompute_automatically"] = False  # Uncheck the recompute automatically
+    st.session_state[
+        "recompute_automatically"
+    ] = False  # Uncheck the recompute automatically
     display_markdown("ISSUES.md")
     st.session_state["show_issues"] = False  # Reset flag after display
 
 if col3.button("Credits"):
     st.session_state["show_credits"] = True
-    st.session_state["recompute_automatically"] = False  # Uncheck the recompute automatically
+    st.session_state[
+        "recompute_automatically"
+    ] = False  # Uncheck the recompute automatically
     display_markdown("CREDITS.md")
     st.session_state["show_credits"] = False  # Reset flag after display
 
@@ -182,7 +188,7 @@ if not recompute_automatically:
     #     st.session_state["recompute_automatically"] = False  # Turn off auto computation
     #     display_markdown("INTRODUCTION.md")
     #     st.session_state["show_intro"] = False  # Reset flag after display
-    
+
 
 def display_outputs():
     # Check if any markdown is being displayed
