@@ -11,8 +11,9 @@ st.sidebar.title("Check Contamination")
 # if st.sidebar.button("Introduction"):
 #     display_markdown("INTRODUCTION.md")
 
-# Sidebar - markdown links
+# Create three equal-width columns in the sidebar
 col1, col2, col3 = st.sidebar.columns(3)
+
 if "show_intro" not in st.session_state:
     st.session_state["show_intro"] = False
 if "show_issues" not in st.session_state:
@@ -24,21 +25,22 @@ if "recompute_automatically" not in st.session_state:
         "recompute_automatically"
     ] = True  # Default to auto recompute being enabled
 
+# Add buttons to each column
 if col1.button("Intro"):
-    st.session_state["show_intro"] = True  # Set flag for intro display
-    st.session_state["recompute_automatically"] = False  # Turn off auto computation
+    st.session_state["show_intro"] = True
+    st.session_state["recompute_automatically"] = False  # Uncheck the recompute automatically
     display_markdown("INTRODUCTION.md")
     st.session_state["show_intro"] = False  # Reset flag after display
 
 if col2.button("Known Issues"):
-    st.session_state["show_issues"] = True  # Set flag for issues display
-    st.session_state["recompute_automatically"] = False  # Turn off auto computation
+    st.session_state["show_issues"] = True
+    st.session_state["recompute_automatically"] = False  # Uncheck the recompute automatically
     display_markdown("ISSUES.md")
     st.session_state["show_issues"] = False  # Reset flag after display
 
 if col3.button("Credits"):
-    st.session_state["show_credits"] = True  # Set flag for credits display
-    st.session_state["recompute_automatically"] = False  # Turn off auto computation
+    st.session_state["show_credits"] = True
+    st.session_state["recompute_automatically"] = False  # Uncheck the recompute automatically
     display_markdown("CREDITS.md")
     st.session_state["show_credits"] = False  # Reset flag after display
 

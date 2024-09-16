@@ -62,7 +62,7 @@ class ContaminationChecker:
                 for prop in properties
             ]
             plt.figure(figsize=(4, 4))
-            venn = venn2(subsets=subsets, set_labels=properties)
+            venn2(subsets=subsets, set_labels=properties)
         else:
             # Create three side-by-side dropdowns
             col1, col2, col3 = st.columns(3)
@@ -92,7 +92,7 @@ class ContaminationChecker:
                     for prop in [prop1, prop2]
                 ]
                 plt.figure(figsize=(4, 4))
-                venn = venn2(subsets=subsets, set_labels=[prop1, prop2])
+                venn2(subsets=subsets, set_labels=[prop1, prop2])
             else:
                 subsets = [
                     set(
@@ -105,7 +105,7 @@ class ContaminationChecker:
                     for prop in [prop1, prop2, prop3]
                 ]
                 plt.figure(figsize=(4, 4))
-                venn = venn3(subsets=subsets, set_labels=[prop1, prop2, prop3])
+                venn3(subsets=subsets, set_labels=[prop1, prop2, prop3])
 
         # Set title
         plt.title("Contributing Properties of Filtered Bacteria")
@@ -221,7 +221,8 @@ class ContaminationChecker:
             weighted_values = values[:min_length] * weights[:min_length]
             if len(values) != len(weights):
                 print(
-                    f"Warning: Mismatch in length of values ({len(values)}) and weights ({len(weights)}) for species {species}"
+                    f"Warning: Mismatch in length of values ({len(values)}) and\
+                        weights ({len(weights)}) for species {species}"
                 )
             total_score = sum(weighted_values)
 
